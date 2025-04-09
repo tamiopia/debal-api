@@ -4,6 +4,9 @@ const connectDB = require('./config/db');
 const cors = require('cors');
 const authRoutes = require("./routes/authRoutes");
 const profileRoutes = require('./routes/profileRoutes');
+const session = require('express-session');
+const passport = require('passport');
+require('./config/passport');
 // Initialize Express
 const app = express();
 
@@ -11,6 +14,13 @@ const app = express();
 app.use(cors());
 app.use(express.json()); // Parse JSON body
 
+app.use(session({
+    secret: process.env.JWT_SECRET,
+    resave: false,
+    saveUninitialized: false
+  }));
+  app.use(passport.initialize());
+  app.use(passport.session());
 // Connect to MongoDB
 connectDB();
 
@@ -18,6 +28,8 @@ connectDB();
 app.get('/', (req, res) => {
   res.send('🚀 Backend is in hurry to get his debal ❤️!');
 });
+
+
 
 app.use("/api/auth", authRoutes);
 
