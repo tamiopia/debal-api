@@ -16,7 +16,7 @@ const userSchema = new mongoose.Schema({
   googleId: String,
   githubId: String,
   avatar: String,
-  role: { type: String, enum: ['user', 'admin'], default: 'user' },
+  role: { type: String, enum: ['user', 'admin','superadmin','houseprovider'], default: 'user' },
   isOnline: { type: Boolean, default: false }
 }, { timestamps: true });
 

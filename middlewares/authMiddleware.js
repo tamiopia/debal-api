@@ -31,9 +31,29 @@ console.log("Token:", token);
 
 // Admin middleware (optional)
 exports.admin = (req, res, next) => {
-  if (req.user && req.user.role === "admin") {
+  if (req.user && req.user.role === "admin" || req.user.role === "superadmin") {
     next();
   } else {
     res.status(403).json({ error: "Not authorized as admin" });
+  }
+};
+
+exports.superadmin = (req, res, next) => {
+  if (req.user && req.user.role === "superadmin") {
+    next();
+  } else {
+    res.status(403).json({ error: "Not authorized as superadmin" });
+  }
+}
+
+exports.providerAuth = async (req, res, next) => {
+  try {
+    const provider = await HouseProvider.findOne({ user: req.user.id });
+    if (!provider || !provider.verified) {
+      return res.status(403).json({ error: 'Provider verification required' });
+    }
+    next();
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 };

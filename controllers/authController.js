@@ -6,7 +6,7 @@ const jwt = require("jsonwebtoken");
 // @desc    Register a new user
 // @route   POST /api/auth/register
 exports.register = async (req, res) => {
-  const { name, email, password } = req.body;
+  const { name, email, password,role } = req.body;
 
   try {
     // Check if user exists
@@ -23,6 +23,7 @@ exports.register = async (req, res) => {
     const user = await User.create({
       name,
       email,
+      role,
       password: hashedPassword,
     });
         // Create profile for the user
@@ -38,6 +39,7 @@ exports.register = async (req, res) => {
       _id: user._id,
       name: user.name,
       email: user.email,
+      role: user.role,
       token,
     });
   } catch (err) {
@@ -72,6 +74,7 @@ exports.login = async (req, res) => {
       _id: user._id,
       name: user.name,
       email: user.email,
+      role: user.role,
       token,
     });
   } catch (err) {
