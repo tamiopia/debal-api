@@ -10,7 +10,7 @@ const options = {
       description: 'Property listing management',
     },
     servers: [
-      { url: process.env.NODE_ENV === 'production' ? 'https://debal-api.onrender.com' : 'http://localhost:5000/api' }
+      { url: process.env.NODE_ENV === 'production' ? 'https://debal-api.onrender.com/api' : 'http://localhost:5000/api' }
     ],
     components: {
       securitySchemes: {
