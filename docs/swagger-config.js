@@ -9,7 +9,9 @@ const options = {
       version: '1.0.0',
       description: 'Property listing management',
     },
-    servers: [{ url: 'http://localhost:5000/api' }],
+    servers: [
+      { url: process.env.NODE_ENV === 'production' ? 'https://debal-api.onrender.com' : 'http://localhost:5000/api' }
+    ],
     components: {
       securitySchemes: {
         bearerAuth: {
