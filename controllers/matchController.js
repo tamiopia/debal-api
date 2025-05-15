@@ -47,6 +47,19 @@ exports.getMatches = async (req, res) => {
             score,
             profile: await Profile.findOne({ user: user._id })
           });
+          const Notification = require('../models/Notification');
+
+// Inside getMatches when a match is found:
+const notification = await Notification.create({
+  recipient: matchedUser._id,
+  sender: req.user.id,
+  type: 'match',
+  content: `You matched with ${req.user.name}!`,
+  metadata: { matchScore: score }
+});
+
+// Real-time emission
+req.app.get('io').to(`notifications_${matchedUser._id}`).emit('newNotification', notification);
         }
       }
     }
@@ -59,3 +72,4 @@ exports.getMatches = async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 };
+

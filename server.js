@@ -19,6 +19,7 @@ const matchRoutes = require('./routes/matchRoutes');
 const chatRoutes = require('./routes/chatRoutes'); // New chat routes
 const houseProviderRoutes = require('./routes/houseProviderRoutes'); // New chat routes
 const houseListingRoutes = require('./routes/houseListingRoutes'); // New chat routes
+const verificationRoutes = require('./routes/verificationRoutes'); // New chat routes
 
 // Initialize Express and HTTP server
 const app = express();
@@ -61,6 +62,7 @@ app.use('/api/matches', matchRoutes);
 app.use('/api/chat', chatRoutes); // New chat endpoint
 app.use('/api/list', houseListingRoutes); 
 app.use('/api/providers', houseProviderRoutes); 
+app.use('/api/verification',verificationRoutes ); 
 
 // Socket.io connection handler
 require('./sockets/chatSocket')(io); // Real-time chat logic
