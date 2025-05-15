@@ -7,18 +7,19 @@ exports.protect = async (req, res, next) => {
 
   const authHeader = req.headers.authorization || req.headers.Authorization;
 
-if (authHeader && authHeader.startsWith("Bearer")) {
+  if (authHeader && authHeader.startsWith("Bearer")) {
     token = authHeader.split(" ")[1];
-}
-    token = authHeader; // Check for token in cookie
-console.log("Token:", token);
+  } else if (req.cookies && req.cookies.token) {
+    token = req.cookies.token;
+  }
+
+  console.log("Token:", token);
 
   if (!token) {
     return res.status(401).json({ error: "Not authorized, no token" });
   }
 
   try {
-    // Verify token
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     console.log("Decoded:", decoded);
     req.user = await User.findById(decoded.id).select("-password");
