@@ -62,7 +62,8 @@ const messageSchema = new mongoose.Schema({
     default: false
   },
   readAt: Date
-}, { timestamps: true });
+},
+ { timestamps: true });
 
 // Add geospatial index for location searches
 messageSchema.index({ sparse: true,

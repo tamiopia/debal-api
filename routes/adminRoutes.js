@@ -5,8 +5,8 @@ const router = express.Router();
 
 // Import controllers
 
-router.get('/allusers',protect,admin,adminController.getAllUsers);
-router.get('/user/:id',protect,admin,adminController.getUserById);
+router.get('/allusers',protect,adminController.getAllUsers);
+router.get('/user/:id',protect,adminController.getUserById);
 router.get('/allproviders',protect,admin,adminController.getAllProviders);
 router.get('/provider/:id',protect,admin,adminController.getProviderById);
 router.get('/alladmins',protect ,superadmin, adminController.getAdmins);

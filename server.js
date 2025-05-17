@@ -9,6 +9,7 @@ const passport = require('passport');
 const path = require('path');
 const swaggerUi = require('swagger-ui-express');
 const swaggerSpec = require('./docs/swagger-config');
+const bodyParser = require('body-parser');
 
 
 // Route imports
@@ -34,6 +35,8 @@ const io = socketio(server, {
 });
 
 // Passport config
+
+
 require('./config/passport');
 
 // Middleware
@@ -44,6 +47,8 @@ app.use(session({
   resave: false,
   saveUninitialized: false
 }));
+app.use(bodyParser.json());
+app.use(bodyParser.urlencoded({ extended: true }));
 app.use(passport.initialize());
 app.use(passport.session());
 

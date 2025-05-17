@@ -156,3 +156,52 @@ exports.getMessages = async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 };
+
+// Get all conversations for current user with last message preview
+// Get all conversations for current user with last message preview
+exports.getConversations = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    
+    // Find all conversations for the user
+    const conversations = await Conversation.find({
+      participants: userId
+    })
+    .populate({
+      path: 'participants',
+      select: 'name avatar email'
+    })
+    .populate({
+      path: 'lastMessage',
+      select: 'content sender createdAt read'
+    })
+    .sort({ updatedAt: -1 }); // Sort by most recent
+
+    // Get unread counts for all conversations in parallel
+    const conversationsWithUnread = await Promise.all(
+      conversations.map(async (conv) => {
+        const unreadCount = await Message.countDocuments({
+          conversation: conv._id,
+          sender: { $ne: userId },
+          read: false
+        });
+        
+        const otherParticipant = conv.participants.find(
+          p => p._id.toString() !== userId.toString()
+        );
+        
+        return {
+          _id: conv._id,
+          participant: otherParticipant,
+          unreadCount,
+          lastMessage: conv.lastMessage,
+          updatedAt: conv.updatedAt
+        };
+      })
+    );
+
+    res.json(conversationsWithUnread);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
