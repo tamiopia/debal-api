@@ -6,6 +6,16 @@ const houseRuleSchema = new mongoose.Schema({
         required: true,
         trim: true,
     },
+    user: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
+        required: true,
+    },
+    provider: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'HouseProvider',
+        required: true,
+    },
     description: {
         type: String,
         trim: true,
