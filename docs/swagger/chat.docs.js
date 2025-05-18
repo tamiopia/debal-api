@@ -287,3 +287,81 @@
  *       500:
  *         description: Internal server error
  */
+/**
+ * @swagger
+ * /chat/conversations:
+ *   get:
+ *     summary: Get all conversations for current user
+ *     description: Retrieve all conversations for the authenticated user with last message preview and unread counts
+ *     tags: [Chat]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Maximum number of conversations to return
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Page number for pagination
+ *     responses:
+ *       200:
+ *         description: List of user's conversations
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       _id:
+ *                         type: string
+ *                         example: "5f8d04b3ab35a642f4b5b3b4"
+ *                       participant:
+ *                         $ref: '#/components/schemas/User'
+ *                       unreadCount:
+ *                         type: integer
+ *                         example: 3
+ *                       lastMessage:
+ *                         $ref: '#/components/schemas/Message'
+ *                       updatedAt:
+ *                         type: string
+ *                         format: date-time
+ *                 pagination:
+ *                   type: object
+ *                   properties:
+ *                     total:
+ *                       type: integer
+ *                       example: 15
+ *                     pages:
+ *                       type: integer
+ *                       example: 2
+ *                     currentPage:
+ *                       type: integer
+ *                       example: 1
+ *                     perPage:
+ *                       type: integer
+ *                       example: 10
+ *       401:
+ *         description: Unauthorized - Invalid or missing authentication token
+ *       500:
+ *         description: Internal server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
