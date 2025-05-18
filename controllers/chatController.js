@@ -4,6 +4,8 @@ const io = require('../sockets/chatSocket');
 const upload = require('../middlewares/upload');
 const fs = require('fs');
 const path = require('path');
+const mongoose = require('mongoose');
+const User = require("../models/User");
 
 // Save message to DB (used by Socket.io)
 exports.saveMessage = async (messageData) => {
@@ -18,28 +20,18 @@ exports.saveMessage = async (messageData) => {
 // Create new conversation
 exports.createConversation = async (req, res) => {
   try {
-    // Validate input
     const { participantId } = req.body;
     const userId = req.user.id;
 
-    if (!participantId) {
-      return res.status(400).json({
+    // Input validation
+    if (!participantId || !mongoose.Types.ObjectId.isValid(participantId)) {
+      return res.status(400).json({ 
         success: false,
-        error: "Participant ID is required",
-        code: "MISSING_PARTICIPANT"
+        error: "Invalid participant ID",
+        code: "INVALID_PARTICIPANT"
       });
     }
 
-    // Validate participantId format
-    if (!mongoose.Types.ObjectId.isValid(participantId)) {
-      return res.status(400).json({
-        success: false,
-        error: "Invalid participant ID format",
-        code: "INVALID_PARTICIPANT_ID"
-      });
-    }
-
-    // Prevent self-conversation
     if (participantId === userId.toString()) {
       return res.status(400).json({
         success: false,
@@ -48,13 +40,17 @@ exports.createConversation = async (req, res) => {
       });
     }
 
-    // Sort participant IDs to ensure consistent order
-    const participants = [userId, participantId].sort();
+    // Create sorted participant array
+    const participants = [userId, participantId]
+      .map(id => new mongoose.Types.ObjectId(id))
+      .sort((a, b) => a.toString().localeCompare(b.toString()));
 
-    // Check if conversation already exists
-    const existingConversation = await Conversation.findOne({
-      participants: { $all: participants }
-    }).populate('participants', 'name avatar email');
+    // Generate the participant hash
+    const participantHash = participants.map(id => id.toString()).sort().join('_');
+
+    // Check for existing conversation using participantHash
+    const existingConversation = await Conversation.findOne({ participantHash })
+      .populate('participants', 'name avatar email');
 
     if (existingConversation) {
       return res.status(200).json({
@@ -75,28 +71,27 @@ exports.createConversation = async (req, res) => {
       });
     }
 
-    // Create new conversation with sorted participants
-    const newConversation = await Conversation.create({
-      participants
+    // Create new conversation
+    const newConversation = await Conversation.create({ 
+      participants,
+      participantHash // Include the hash
     });
-
-    // Populate the participants data
-    const populatedConversation = await Conversation.populate(newConversation, {
+    
+    const populated = await Conversation.populate(newConversation, {
       path: 'participants',
       select: 'name avatar email'
     });
 
-    res.status(201).json({
+    return res.status(201).json({
       success: true,
-      data: populatedConversation,
+      data: populated,
       isNew: true,
       message: "Conversation created successfully"
     });
 
   } catch (err) {
     console.error("Error creating conversation:", err);
-
-    // Handle duplicate key error specifically
+    
     if (err.code === 11000) {
       return res.status(409).json({
         success: false,
@@ -105,16 +100,6 @@ exports.createConversation = async (req, res) => {
       });
     }
 
-    // Handle MongoDB validation errors
-    if (err.name === 'ValidationError') {
-      return res.status(400).json({
-        success: false,
-        error: Object.values(err.errors).map(e => e.message).join(', '),
-        code: "VALIDATION_ERROR"
-      });
-    }
-
-    // Handle other errors
     res.status(500).json({
       success: false,
       error: "Internal server error",
@@ -133,11 +118,29 @@ exports.sendMessage = [
     try {
       const { conversationId, content, messageType } = req.body;
       const senderId = req.user.id;
-        console.log(req.body);
+
+      // Validate conversation exists and user is a participant
+      const conversation = await Conversation.findOne({
+        _id: conversationId,
+        participants: senderId
+      });
+
+      if (!conversation) {
+        return res.status(404).json({ 
+          success: false,
+          error: "Conversation not found or access denied",
+          code: "INVALID_CONVERSATION"
+        });
+      }
+
       // Validate message type
       const validTypes = ['text', 'media', 'location'];
       if (!validTypes.includes(messageType)) {
-        return res.status(400).json({ error: 'Invalid message type' });
+        return res.status(400).json({ 
+          success: false,
+          error: 'Invalid message type',
+          code: "INVALID_MESSAGE_TYPE"
+        });
       }
 
       // Process based on message type
@@ -149,15 +152,27 @@ exports.sendMessage = [
 
       switch (messageType) {
         case 'text':
+          if (!content || typeof content !== 'string') {
+            return res.status(400).json({
+              success: false,
+              error: 'Text content is required',
+              code: "MISSING_CONTENT"
+            });
+          }
           messageData.content = content;
           break;
 
         case 'media':
           if (!req.file) {
-            return res.status(400).json({ error: 'Media file required' });
+            return res.status(400).json({
+              success: false,
+              error: 'Media file required',
+              code: "MISSING_MEDIA"
+            });
           }
           messageData.media = {
             url: `/uploads/${req.file.filename}`,
+            mediaType: req.file.mimetype.split('/')[0], // 'image', 'video', etc.
             size: req.file.size
           };
           break;
@@ -165,6 +180,9 @@ exports.sendMessage = [
         case 'location':
           try {
             const location = JSON.parse(req.body.location);
+            if (!location.longitude || !location.latitude) {
+              throw new Error('Missing coordinates');
+            }
             messageData.location = {
               type: 'Point',
               coordinates: [location.longitude, location.latitude],
@@ -172,17 +190,53 @@ exports.sendMessage = [
               address: location.address || null
             };
           } catch (err) {
-            return res.status(400).json({ error: 'Invalid location data' });
+            return res.status(400).json({
+              success: false,
+              error: 'Invalid location data',
+              code: "INVALID_LOCATION",
+              details: err.message
+            });
           }
           break;
       }
-        console.log(messageData)
 
+      // Create and save message
       const message = await Message.create(messageData);
-      res.status(201).json(message);
+      
+      // Update conversation's last message
+      await Conversation.findByIdAndUpdate(
+        conversationId,
+        { lastMessage: message._id }
+      );
+
+      // Populate sender info in response
+      const populatedMessage = await Message.populate(message, {
+        path: 'sender',
+        select: 'name avatar'
+      });
+
+      res.status(201).json({
+        success: true,
+        data: populatedMessage
+      });
 
     } catch (err) {
-      res.status(500).json({ error: err.message });
+      console.error("Error sending message:", err);
+      
+      if (err.name === 'CastError') {
+        return res.status(400).json({
+          success: false,
+          error: "Invalid ID format",
+          code: "INVALID_ID_FORMAT"
+        });
+      }
+
+      res.status(500).json({
+        success: false,
+        error: "Failed to send message",
+        code: "SERVER_ERROR",
+        details: process.env.NODE_ENV === 'development' ? err.message : undefined
+      });
     }
   }
 ];
@@ -245,46 +299,110 @@ exports.getMessages = async (req, res) => {
 exports.getConversations = async (req, res) => {
   try {
     const userId = req.user.id;
-    
-    // Find all conversations for the user
-    const conversations = await Conversation.find({
-      participants: userId
-    })
-    .populate({
-      path: 'participants',
-      select: 'name avatar email'
-    })
-    .populate({
-      path: 'lastMessage',
-      select: 'content sender createdAt read'
-    })
-    .sort({ updatedAt: -1 }); // Sort by most recent
 
-    // Get unread counts for all conversations in parallel
-    const conversationsWithUnread = await Promise.all(
-      conversations.map(async (conv) => {
-        const unreadCount = await Message.countDocuments({
-          conversation: conv._id,
-          sender: { $ne: userId },
-          read: false
-        });
-        
-        const otherParticipant = conv.participants.find(
-          p => p._id.toString() !== userId.toString()
-        );
-        
-        return {
-          _id: conv._id,
-          participant: otherParticipant,
-          unreadCount,
-          lastMessage: conv.lastMessage,
-          updatedAt: conv.updatedAt
-        };
-      })
-    );
+    // Validate user ID
+    if (!mongoose.isValidObjectId(userId)) {
+      return res.status(400).json({ 
+        success: false,
+        error: "Invalid user ID format",
+        code: "INVALID_ID"
+      });
+    }
 
-    res.json(conversationsWithUnread);
+    const conversations = await Conversation.aggregate([
+      { $match: { participants: new mongoose.Types.ObjectId(userId) } },
+      { $sort: { updatedAt: -1 } },
+      {
+        $lookup: {
+          from: 'users',
+          localField: 'participants',
+          foreignField: '_id',
+          as: 'participants',
+          pipeline: [{ $project: { name: 1, avatar: 1, email: 1 } }]
+        }
+      },
+      {
+        $lookup: {
+          from: 'messages',
+          let: { convId: '$_id' },
+          pipeline: [
+            { $match: { $expr: { $eq: ['$conversation', '$$convId'] } } },
+            { $sort: { createdAt: -1 } },
+            { $limit: 1 },
+            { $project: { content: 1, sender: 1, createdAt: 1, read: 1 } }
+          ],
+          as: 'lastMessage'
+        }
+      },
+      { $unwind: { path: '$lastMessage', preserveNullAndEmptyArrays: true } },
+      {
+        $lookup: {
+          from: 'messages',
+          let: { convId: '$_id', userId: new mongoose.Types.ObjectId(userId) },
+          pipeline: [
+            { 
+              $match: { 
+                $expr: { 
+                  $and: [
+                    { $eq: ['$conversation', '$$convId'] },
+                    { $ne: ['$sender', '$$userId'] },
+                    { $eq: ['$read', false] }
+                  ]
+                }
+              }
+            },
+            { $count: 'count' }
+          ],
+          as: 'unread'
+        }
+      },
+      {
+        $addFields: {
+          unreadCount: { $ifNull: [{ $arrayElemAt: ['$unread.count', 0] }, 0] },
+          participant: {
+            $arrayElemAt: [
+              { $filter: {
+                input: '$participants',
+                as: 'participant',
+                cond: { $ne: ['$$participant._id', new mongoose.Types.ObjectId(userId)] }
+              }},
+              0
+            ]
+          }
+        }
+      },
+      {
+        $project: {
+          _id: 1,
+          participant: 1,
+          lastMessage: 1,
+          unreadCount: 1,
+          updatedAt: 1
+        }
+      }
+    ]);
+
+    res.json({
+      success: true,
+      data: conversations
+    });
+
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('Conversation fetch error:', err);
+    
+    if (err.name === 'CastError') {
+      return res.status(400).json({
+        success: false,
+        error: `Invalid ID format at ${err.path}`,
+        code: "INVALID_ID_FORMAT"
+      });
+    }
+
+    res.status(500).json({
+      success: false,
+      error: "Failed to fetch conversations",
+      code: "SERVER_ERROR",
+      details: process.env.NODE_ENV === 'development' ? err.message : undefined
+    });
   }
 };

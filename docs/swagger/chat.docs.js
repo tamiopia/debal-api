@@ -23,8 +23,12 @@
  *         participants:
  *           type: array
  *           items:
- *             type: string
- *           example: ["5f8d04b3ab35a642f4b5b3b2", "5f8d04b3ab35a642f4b5b3b3"]
+ *             $ref: '#/components/schemas/User'
+ *         lastMessage:
+ *           $ref: '#/components/schemas/Message'
+ *         participantHash:
+ *           type: string
+ *           example: "user1_user2"
  *         createdAt:
  *           type: string
  *           format: date-time
@@ -56,6 +60,9 @@
  *             url:
  *               type: string
  *               example: "/uploads/image.jpg"
+ *             mediaType:
+ *               type: string
+ *               enum: [image, video, document]
  *             size:
  *               type: number
  *               example: 1024
@@ -98,13 +105,13 @@
  *         avatar:
  *           type: string
  *           example: "/uploads/avatar.jpg"
+ *         email:
+ *           type: string
+ *           example: "john@example.com"
  * 
  *     MessageInput:
  *       type: object
  *       properties:
- *         conversationId:
- *           type: string
- *           example: "5f8d04b3ab35a642f4b5b3b4"
  *         content:
  *           type: string
  *           example: "Hello there!"
@@ -145,6 +152,22 @@
  *           example: "5f8d04b3ab35a642f4b5b3b3"
  *       required:
  *         - participantId
+ * 
+ *     Error:
+ *       type: object
+ *       properties:
+ *         success:
+ *           type: boolean
+ *           example: false
+ *         error:
+ *           type: string
+ *           example: "Error message"
+ *         code:
+ *           type: string
+ *           example: "ERROR_CODE"
+ *         details:
+ *           type: string
+ *           example: "Additional error details"
  */
 
 /**
@@ -175,8 +198,18 @@
  *           application/json:
  *             schema:
  *               $ref: '#/components/schemas/Conversation'
+ *       400:
+ *         description: Bad request
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
  *       500:
  *         description: Internal server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
  */
 
 /**
@@ -204,13 +237,23 @@
  *               type: array
  *               items:
  *                 $ref: '#/components/schemas/Message'
+ *       404:
+ *         description: Conversation not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
  *       500:
  *         description: Internal server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
  */
 
 /**
  * @swagger
- * /chat/{conversationId}/messages:
+ * /chat/{conversationId}/send-message:
  *   post:
  *     summary: Send a message
  *     description: Send a message to a conversation (supports text, media, and location)
@@ -254,8 +297,22 @@
  *               $ref: '#/components/schemas/Message'
  *       400:
  *         description: Invalid message type or missing required fields
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       404:
+ *         description: Conversation not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
  *       500:
  *         description: Internal server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
  */
 
 /**
@@ -284,12 +341,23 @@
  *                 success:
  *                   type: boolean
  *                   example: true
+ *       400:
+ *         description: Invalid message IDs
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
  *       500:
  *         description: Internal server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
  */
+
 /**
  * @swagger
- * /chat/conversations:
+ * /chat/users/conversations:
  *   get:
  *     summary: Get all conversations for current user
  *     description: Retrieve all conversations for the authenticated user with last message preview and unread counts
@@ -358,6 +426,10 @@
  *                       example: 10
  *       401:
  *         description: Unauthorized - Invalid or missing authentication token
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
  *       500:
  *         description: Internal server error
  *         content:

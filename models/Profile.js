@@ -17,7 +17,7 @@ const profileSchema = new mongoose.Schema({
   gender: {
     type: String,
     enum: ['male', 'female'], // Gender options
-    required: true
+    required: false
   },
   occupation: {
     type: String,
@@ -41,14 +41,14 @@ const profileSchema = new mongoose.Schema({
   sleep_pattern: {
     type: String,
     enum: ['early-bird', 'night-owl', 'flexible'],
-    required: true
+    required: false
   },
 
   // Neighborhood Preferences
   preferred_location_type: {
     type: String,
     enum: ['urban', 'suburban', 'rural'], // Living preference for location
-    required: true
+    required: false
   },
   commute_tolerance_minutes: {
     type: Number,
@@ -60,23 +60,23 @@ const profileSchema = new mongoose.Schema({
   hobbies: [{
     type: String,
     enum: ['reading', 'sports', 'travelling', 'music', 'movies', 'gaming', 'cooking', 'art','board games'],
-    required: true
+    required: false
   }],
 
   // Financial
   income_level: {
     type: String,
     maxlength: 50, // Allowing a range or description
-    required: true
+    required: false
   },
   budget_range: {
     min: {
       type: Number,
-      required: true
+      required: false
     },
     max: {
       type: Number,
-      required: true
+      required: false
     }
   },
 
@@ -84,51 +84,51 @@ const profileSchema = new mongoose.Schema({
   cleanliness_level: {
     type: String,
     enum: ['very-clean', 'clean', 'average', 'messy'],
-    required: true
+    required: false
   },
   chore_sharing_preference: {
     type: String,
     enum: ['share', 'separate'],
-    required: true
+    required: false
   },
   noise_tolerance: {
     type: String,
     enum: ['quiet', 'average', 'noisy'],
-    required: true
+    required: false
   },
   guest_frequency: {
     type: String,
     enum: ['never', 'rarely', 'sometimes', 'often'],
-    required: true
+    required: false
   },
   party_habits: {
     type: String,
     enum: ['never', 'rarely', 'sometimes', 'often'],
-    required: true
+    required: false
   },
 
   // Pets
   has_pets: {
     type: String,
-    enum: ['true', 'false'],
-    required: true
+    enum: ['false', 'true'],
+    required: false
   },
   pet_tolerance: {
     type: String,
     enum: ['no-pets', 'cats', 'dogs', 'both'],
-    required: true
+    required:false
   },
 
   // Food & Kitchen
   cooking_frequency: {
     type: String,
     enum: ['never', 'sometimes', 'often', 'always'],
-    required: true
+    required:false
   },
   diet_type: {
     type: String,
     enum: ['vegan', 'vegetarian', 'omnivore', 'pescatarian', 'other'],
-    required: true
+    required:false
   },
   shared_groceries: {
     type: Boolean,
@@ -139,7 +139,7 @@ const profileSchema = new mongoose.Schema({
   work_hours: {
     type: String,
     enum: ['9-5', 'flexible', 'shift-work', 'other'],
-    required: true
+    required:false
   },
   works_from_home: {
     type: Boolean,
@@ -148,19 +148,19 @@ const profileSchema = new mongoose.Schema({
   chronotype: {
     type: String,
     enum: ['early-bird', 'night-owl', 'flexible'],
-    required: true
+    required:false
   },
 
   // Privacy & Shared Space
   privacy_level: {
     type: String,
     enum: ['high', 'medium', 'low'],
-    required: true
+    required:false
   },
   shared_space_usage: {
     type: String,
     enum: ['private', 'shared', 'both'],
-    required: true
+    required:false
   },
 
   // Status flag
@@ -192,6 +192,6 @@ const profileSchema = new mongoose.Schema({
     }
   },
 
-}, { timestamps: true });
+}, { timestamps:true });
 
 module.exports = mongoose.model("Profile", profileSchema);

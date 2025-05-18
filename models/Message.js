@@ -70,5 +70,11 @@ messageSchema.index({ sparse: true,
   partialFilterExpression: {
     'location.coordinates': { $exists: true }
   } });
+  messageSchema.index({ conversation: 1, sender: 1, read: 1 });
+messageSchema.index({ conversation: 1, createdAt: -1 });
+messageSchema.path('conversation').validate(async function(value) {
+  const conv = await mongoose.model('Conversation').exists({ _id: value });
+  return conv;
+}, 'Invalid conversation reference');
 
 module.exports = mongoose.model('Message', messageSchema);
