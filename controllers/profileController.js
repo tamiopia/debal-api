@@ -13,7 +13,59 @@ exports.getMyProfile = async (req, res) => {
       return res.status(404).json({ error: 'Profile not found' });
     }
 
-    res.json(profile);
+    res.json({
+      user: profile.user,
+      personalInfo: {
+        age: profile.age,
+        gender: profile.gender,
+        occupation: profile.occupation,
+        religion: profile.religion,
+        relationship_status: profile.relationship_status
+      },
+      lifestyle: {
+        personality_type: profile.personality_type,
+        daily_routine: profile.daily_routine,
+        sleep_pattern: profile.sleep_pattern
+      },
+      neighborhoodPrefs: {
+        preferred_location_type: profile.preferred_location_type,
+        commute_tolerance_minutes: profile.commute_tolerance_minutes
+      },
+      hobbies: profile.hobbies,
+      financial: {
+        income_level: profile.income_level,
+        budget_range: profile.budget_range
+      },
+      sharedLiving: {
+        cleanliness_level: profile.cleanliness_level,
+        chore_sharing_preference: profile.chore_sharing_preference,
+        noise_tolerance: profile.noise_tolerance,
+        guest_frequency: profile.guest_frequency,
+        party_habits: profile.party_habits
+      },
+      pets: {
+        has_pets: profile.has_pets,
+        pet_tolerance: profile.pet_tolerance
+      },
+      food: {
+        cooking_frequency: profile.cooking_frequency,
+        diet_type: profile.diet_type,
+        shared_groceries: profile.shared_groceries
+      },
+      work: {
+        work_hours: profile.work_hours,
+        works_from_home: profile.works_from_home,
+        chronotype: profile.chronotype
+      },
+      privacy: {
+        privacy_level: profile.privacy_level,
+        shared_space_usage: profile.shared_space_usage
+      },
+      photos: profile.photos,
+      form_completed: profile.form_completed,
+      recommendationSettings: profile.recommendationSettings
+    });
+    
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -260,12 +312,72 @@ exports.savePrivacy = async (req, res) => {
 };
 
 // Page 11 - Final Step
+
+const RecommendationService = require('../services/recommendationService');
+
 exports.markFormCompleted = async (req, res) => {
   try {
-    const profile = await updateOrCreateProfile(req.user.id, {
-      form_completed: true
+    // Update profile completion status
+    const profile = await Profile.findOneAndUpdate(
+      { user: req.user.id },
+      { form_completed: true },
+      { new: true }
+    ).populate('user');
+
+    // Get initial recommendations
+    const recommendations = await RecommendationService.getRecommendations(profile);
+    
+    // Save recommendations
+    profile.recommendations = recommendations;
+    await profile.save();
+
+    // Schedule daily updates if enabled
+    if (profile.recommendationSettings?.dailyUpdates) {
+      const { scheduleDailyUpdates } = require('../utils/scheduler');
+      scheduleDailyUpdates(req.user.id);
+    }
+
+    res.json({
+      success: true,
+      data: {
+        profile: profile.toObject(),
+        recommendations: recommendations
+      },
+      message: "Profile completed successfully. Initial matches generated."
     });
-    res.json(profile);
+
+  } catch (err) {
+    res.status(500).json({ 
+      success: false,
+      error: err.message,
+      code: "RECOMMENDATION_FAILED"
+    });
+  }
+};
+exports.getRecommendations = async (req, res) => {
+  try {
+    const profile = await Profile.findOne({ user: req.user.id })
+      .populate('recommendations.userId', 'name avatar');
+    
+    res.json(profile.recommendations);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+exports.updateRecommendationSettings = async (req, res) => {
+  try {
+    const profile = await Profile.findOneAndUpdate(
+      { user: req.user.id },
+      { recommendationSettings: req.body },
+      { new: true }
+    );
+    
+    if (req.body.dailyUpdates) {
+      scheduleDailyUpdates(req.user.id);
+    }
+    
+    res.json(profile.recommendationSettings);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
