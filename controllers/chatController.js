@@ -18,26 +18,109 @@ exports.saveMessage = async (messageData) => {
 // Create new conversation
 exports.createConversation = async (req, res) => {
   try {
+    // Validate input
     const { participantId } = req.body;
-    const userId = req.user.id; // From auth middleware
+    const userId = req.user.id;
+
+    if (!participantId) {
+      return res.status(400).json({
+        success: false,
+        error: "Participant ID is required",
+        code: "MISSING_PARTICIPANT"
+      });
+    }
+
+    // Validate participantId format
+    if (!mongoose.Types.ObjectId.isValid(participantId)) {
+      return res.status(400).json({
+        success: false,
+        error: "Invalid participant ID format",
+        code: "INVALID_PARTICIPANT_ID"
+      });
+    }
+
+    // Prevent self-conversation
+    if (participantId === userId.toString()) {
+      return res.status(400).json({
+        success: false,
+        error: "Cannot create conversation with yourself",
+        code: "SELF_CONVERSATION"
+      });
+    }
+
+    // Sort participant IDs to ensure consistent order
+    const participants = [userId, participantId].sort();
 
     // Check if conversation already exists
     const existingConversation = await Conversation.findOne({
-      participants: { $all: [userId, participantId] }
-    });
+      participants: { $all: participants }
+    }).populate('participants', 'name avatar email');
 
     if (existingConversation) {
-      return res.status(200).json(existingConversation);
+      return res.status(200).json({
+        success: true,
+        data: existingConversation,
+        isNew: false,
+        message: "Existing conversation found"
+      });
     }
 
-    // Create new conversation
+    // Verify participant exists
+    const participantExists = await User.exists({ _id: participantId });
+    if (!participantExists) {
+      return res.status(404).json({
+        success: false,
+        error: "Participant user not found",
+        code: "PARTICIPANT_NOT_FOUND"
+      });
+    }
+
+    // Create new conversation with sorted participants
     const newConversation = await Conversation.create({
-      participants: [userId, participantId]
+      participants
     });
 
-    res.status(201).json(newConversation);
+    // Populate the participants data
+    const populatedConversation = await Conversation.populate(newConversation, {
+      path: 'participants',
+      select: 'name avatar email'
+    });
+
+    res.status(201).json({
+      success: true,
+      data: populatedConversation,
+      isNew: true,
+      message: "Conversation created successfully"
+    });
+
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error("Error creating conversation:", err);
+
+    // Handle duplicate key error specifically
+    if (err.code === 11000) {
+      return res.status(409).json({
+        success: false,
+        error: "Conversation already exists between these users",
+        code: "CONVERSATION_EXISTS"
+      });
+    }
+
+    // Handle MongoDB validation errors
+    if (err.name === 'ValidationError') {
+      return res.status(400).json({
+        success: false,
+        error: Object.values(err.errors).map(e => e.message).join(', '),
+        code: "VALIDATION_ERROR"
+      });
+    }
+
+    // Handle other errors
+    res.status(500).json({
+      success: false,
+      error: "Internal server error",
+      code: "SERVER_ERROR",
+      details: process.env.NODE_ENV === 'development' ? err.message : undefined
+    });
   }
 };
 
