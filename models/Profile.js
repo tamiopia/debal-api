@@ -191,6 +191,20 @@ const profileSchema = new mongoose.Schema({
       index: '2dsphere'
     }
   },
+  recommendations: [{
+    userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    matchPercentage: Number,
+    lastUpdated: Date,
+    compatibilityFactors: {
+      lifestyle: Number,
+      habits: Number,
+      interests: Number
+    }
+  }],
+  recommendationSettings: {
+    dailyUpdates: { type: Boolean, default: true },
+    minMatchPercentage: { type: Number, default: 70 }
+  }
 
 }, { timestamps:true });
 

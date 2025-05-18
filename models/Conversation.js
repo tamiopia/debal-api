@@ -8,7 +8,8 @@ const conversationSchema = new mongoose.Schema({
   }],
   participantHash: {  // New field for consistent comparison
     type: String,
-    unique: true
+    unique: true,
+    index: true 
   },
   lastMessage: {
     type: mongoose.Schema.Types.ObjectId,
@@ -28,6 +29,6 @@ conversationSchema.pre('save', function(next) {
 
 // Remove the old participants index and replace with these
 conversationSchema.index({ participantHash: 1 }, { unique: true });
-conversationSchema.index({ participants: 1, updatedAt: -1 });
+// conversationSchema.index({ participants: 1, updatedAt: -1 });
 
 module.exports = mongoose.model('Conversation', conversationSchema);

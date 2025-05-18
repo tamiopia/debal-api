@@ -17,6 +17,9 @@ const {
   saveWork,
   savePrivacy,
   markFormCompleted,
+  getRecommendations,
+  updateRecommendationSettings
+
 } = require('../controllers/profileController');
 
 const { protect } = require('../middlewares/authMiddleware');
@@ -38,6 +41,7 @@ router.post("/food", protect, saveFood);
 router.post("/work", protect, saveWork);
 router.post("/privacy", protect, savePrivacy);
 router.post("/complete", protect, markFormCompleted);
+
 
 // ✅ Public routes
 router.get('/', getAllProfiles);
