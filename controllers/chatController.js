@@ -287,12 +287,16 @@ exports.getMessages = async (req, res) => {
   try {
     const messages = await Message.find({
       conversation: req.params.conversationId
-    }).populate('sender', 'name avatar');
+    })
+      .populate('sender', 'name avatar')
+      .sort({ createdAt: 1 }); // ✅ sort by timestamp (oldest first)
+
     res.json(messages);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 };
+
 
 // Get all conversations for current user with last message preview
 // Get all conversations for current user with last message preview
