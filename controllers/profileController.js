@@ -529,74 +529,73 @@ exports.markFormCompleted = async (req, res) => {
     }
 
     // 2. Format profile data for AI service
-    const aiData = formatForAI({
-      ...profile,
-      // Map any differently named fields
-      smoking: profile.smoking_preference,
-      has_pets: profile.has_pets
-    });
+    const aiData = formatForAI(
+      {
+        ...profile,
+        // Adjusted fields
+        smoking: profile.smoking_preference,
+        has_pets: profile.has_pets
+      },
+      req.user.id // <== PASS USER ID EXPLICITLY
+    );
+    
 
     console.log('Formatted AI Data:', aiData);
 
     // 3. Add user to AI model
     const aiResponse = await axios.post(
-      `https://60b9-35-243-230-231.ngrok-free.app/add_model_user`,
+      `https://d49a-35-243-230-231.ngrok-free.app/add_model_user`,
       aiData,
       { 
         headers: { 'Content-Type': 'application/json' },
-        timeout: 10000 // 10 second timeout
+        timeout: 30000 // 10 second timeout
       }
     );
 
     // 4. Get initial recommendations
-    const recommendationsResponse = await axios.get(
-      `https://60b9-35-243-230-231.ngrok-free.app/recommend/${aiResponse.data.user_id}`,
-      { 
-        params: { n: profile.recommendationSettings?.minMatches || 5 },
-        timeout: 10000
-      }
-    );
+    // const recommendationsResponse = await axios.get(
+    //   `https://d49a-35-243-230-231.ngrok-free.app/recommend/${aiResponse.data.user_id}`,
+    //   { 
+    //     params: { n: profile.recommendationSettings?.minMatches || 5 },
+    //     timeout: 30000
+    //   }
+    // );
 
     // 5. Update profile with recommendations
-    const updatedProfile = await Profile.findOneAndUpdate(
-      { user: req.user._id },
-      {
-        $set: {
-          aiUserId: aiResponse.data.user_id,
-          recommendations: recommendationsResponse.data.recommendations.map(rec => ({
-            userId: rec.user_id,
-            matchPercentage: Math.round(rec.compatibility_score * 100),
-            lastUpdated: new Date(),
-            compatibilityFactors: {
-              lifestyle: Math.round((rec.compatibility_score * 0.4) * 100),
-              habits: Math.round((rec.compatibility_score * 0.3) * 100),
-              interests: Math.round((rec.compatibility_score * 0.3) * 100)
-            },
-            clusterId: rec.cluster_id
-          })),
-          'metrics.clusterId': recommendationsResponse.data.cluster_info?.cluster_id,
-          'metrics.lastRecommendationUpdate': new Date()
-        }
-      },
-      { new: true }
-    );
+    // const updatedProfile = await Profile.findOneAndUpdate(
+    //   { user: req.user._id },
+    //   {
+    //     $set: {
+    //       aiUserId: aiResponse.data.user_id,
+    //       recommendations: recommendationsResponse.data.recommendations.map(rec => ({
+    //         userId: rec.user_id,
+    //         matchPercentage: Math.round(rec.compatibility_score * 100),
+    //         lastUpdated: new Date(),
+    //         compatibilityFactors: {
+    //           lifestyle: Math.round((rec.compatibility_score * 0.4) * 100),
+    //           habits: Math.round((rec.compatibility_score * 0.3) * 100),
+    //           interests: Math.round((rec.compatibility_score * 0.3) * 100)
+    //         },
+    //         clusterId: rec.cluster_id
+    //       })),
+    //       'metrics.clusterId': recommendationsResponse.data.cluster_info?.cluster_id,
+    //       'metrics.lastRecommendationUpdate': new Date()
+    //     }
+    //   },
+    //   { new: true }
+    // );
 
     // 6. Schedule daily updates if enabled
-    if (profile.recommendationSettings?.dailyUpdates) {
-      const { scheduleRecommendationUpdates } = require('../services/scheduler');
-      scheduleRecommendationUpdates(req.user._id);
-    }
+    // if (profile.recommendationSettings?.dailyUpdates) {
+    //   const { scheduleRecommendationUpdates } = require('../services/scheduler');
+    //   scheduleRecommendationUpdates(req.user._id);
+    // }
 
     // 7. Return success response
     res.json({
       success: true,
       message: "Profile completed and recommendations generated",
-      data: {
-        aiUserId: aiResponse.data.user_id,
-        recommendations: updatedProfile.recommendations,
-        clusterInfo: recommendationsResponse.data.cluster_info,
-        modelMetrics: recommendationsResponse.data.model_metrics
-      }
+      
     });
 
   } catch (error) {
@@ -627,14 +626,32 @@ exports.markFormCompleted = async (req, res) => {
 };
 exports.getRecommendations = async (req, res) => {
   try {
-    const profile = await Profile.findOne({ user: req.user.id })
-      .populate('recommendations.userId', 'name avatar');
-    
-    res.json(profile.recommendations);
+    const minMatches = req.user.recommendationSettings?.minMatches || 5;
+
+    const recommendationsResponse = await axios.get(
+      `https://582a-35-243-230-231.ngrok-free.app/recommend/user_${req.user.id}`,
+      {
+        params: { n: minMatches },
+        timeout: 30000,
+      }
+    );
+
+    const data = recommendationsResponse.data;
+
+    // Check if data.recommendations is an array
+    if (!Array.isArray(data.recommendations)) {
+      throw new Error("Invalid recommendation format received from AI service");
+    }
+
+    res.status(200).json(data); // Send the whole flat object
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error("Error fetching recommendations:", err.message);
+    res.status(500).json({ error: "Invalid recommendation format received from AI service" });
   }
 };
+
+
+
 
 exports.updateRecommendationSettings = async (req, res) => {
   try {

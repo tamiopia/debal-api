@@ -20,7 +20,8 @@ const {
   getRecommendations,
   updateRecommendationSettings,
   setProfilePhoto,
-  deletePhoto
+  deletePhoto,
+  
 
 } = require('../controllers/profileController');
 
@@ -47,6 +48,7 @@ router.post("/food", protect, saveFood);
 router.post("/work", protect, saveWork);
 router.post("/privacy", protect, savePrivacy);
 router.post("/complete", protect, markFormCompleted);
+router.get("/recommendations", protect, getRecommendations);
 
 
 // ✅ Public routes

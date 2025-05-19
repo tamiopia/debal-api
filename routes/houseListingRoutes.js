@@ -9,15 +9,21 @@ const {
   getMyListings,
   updateListing,
   getListingsFeed,
-  getListingById
+  getListingById,
+  getalllistings,
+  DeleteListing,
+  filterlistings
 } = require('../controllers/houseListingController');
 
 
 router.post('/', protect, upload.array('images', 10), createListing);
 router.patch('/:id', protect, upload.array('images', 10), updateListing);
 router.get('/:id', protect, getListingById);
+router.delete('/:id', protect, DeleteListing);
 router.get('/', protect,getMyListings);
+router.get('/filter/lists', protect, filterlistings);
 router.get('/search', searchListings);
+router.get('/all/get',protect,getalllistings);
 // In houseListingRoutes.js
 router.get('/feed', getListingsFeed); // Protected but no admin role required
 

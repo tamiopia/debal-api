@@ -185,7 +185,8 @@ const getMyListings = async (req, res) => {
     console.log('User ID on listing:', userId);
 
     const listings = await HouseListing.find({ user_id: userId })
-      .populate('rules') // Correct field name here
+      .populate('rules')
+      .populate('user_id', 'name') // Correct field name here
       .sort({ createdAt: -1 });
 
     res.status(200).json({ listings });
@@ -198,6 +199,20 @@ const getMyListings = async (req, res) => {
   }
 };
 
+const getalllistings = async (req, res) => {
+  try {
+    const listings = await HouseListing.find()
+      .populate('provider', 'companyName contactPhone')
+      .populate('user_id', 'name')
+      .populate('rules')
+      .sort({ createdAt: -1 });
+
+    res.json(listings);
+  } catch (error) {
+    console.error('Error fetching all listings:', error);
+    res.status(500).json({ error: 'Failed to fetch listings' });
+  }
+}
 
 const getListingById = async (req, res) => {
   try {
@@ -212,7 +227,8 @@ const getListingById = async (req, res) => {
     }
 
     const listing = await HouseListing.findById(id)
-      .populate('provider', 'name email') // adjust fields as needed
+      .populate('provider', 'name email')
+      .populate('user_id', 'name') // adjust fields as needed
       .populate('rules'); // Optional: populate related rules
 
     if (!listing) {
@@ -386,5 +402,66 @@ const calculateListingScore = (listing, userPrefs) => {
   return score;
 };
 
+const DeleteListing = async (req, res) => {
+  try {
+    const listingId = req.params.id;
 
-module.exports = { searchListings,getMyListings,getListingsFeed, updateListing,createListing,getLocationBasedFeed,getListingById };
+    const deletedListing = await HouseListing.findByIdAndDelete(listingId);
+
+    if (!deletedListing) {
+      return res.status(404).json({ error: 'Listing not found' });
+    }
+
+    res.status(200).json({ message: 'House listing deleted successfully' });
+  } catch (err) {
+    console.error('Delete listing error:', err);
+    res.status(500).json({
+      error: 'Failed to delete listing',
+      detail: err.message
+    });
+  }
+}
+
+const filterlistings = async (req, res) => {
+  try {
+    const { minPrice, maxPrice, bedrooms, location, radius = 10 } = req.query;
+    
+    let query = { status: 'available' };
+
+    // Price filter
+    if (minPrice || maxPrice) {
+      query['rent.amount'] = {};
+      if (minPrice) query['rent.amount'].$gte = Number(minPrice);
+      if (maxPrice) query['rent.amount'].$lte = Number(maxPrice);
+    }
+
+    // Bedrooms filter
+    if (bedrooms) {
+      query.bedrooms = { $gte: Number(bedrooms) };
+    }
+
+    // Location filter
+    if (location) {
+      const [longitude, latitude] = location.split(',').map(Number);
+      query['address.coordinates'] = {
+        $near: {
+          $geometry: {
+            type: 'Point',
+            coordinates: [longitude, latitude]
+          },
+          $maxDistance: radius * 1609.34 // Convert miles to meters
+        }
+      };
+    }
+
+    const listings = await HouseListing.find(query)
+      .populate('provider', 'companyName contactPhone');
+
+    res.json(listings);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+}
+
+
+module.exports = { searchListings,getMyListings,getListingsFeed, updateListing,createListing,getLocationBasedFeed,getListingById ,getalllistings,DeleteListing,filterlistings};
