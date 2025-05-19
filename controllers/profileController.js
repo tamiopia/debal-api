@@ -6,6 +6,7 @@ const path = require('path');
 // @route   GET /api/profiles/me
 exports.getMyProfile = async (req, res) => {
   try {
+    const userId = req.user.id; // Get user ID from request
     const profile = await Profile.findOne({ user: req.user.id })
       .populate('user', ['name', 'email', 'avatar']);
 
@@ -198,9 +199,9 @@ exports.setProfilePhoto = async (req, res) => {
     profile.photos = profile.photos.map(photo => {
       if (photo.filename === filename) {
         photoFound = true;
-        return { ...photo.toObject(), is_profile: true };
+        return { ...photo.toObject(), isProfile: true };
       }
-      return { ...photo.toObject(), is_profile: false };
+      return { ...photo.toObject(), isProfile: false };
     });
 
     if (!photoFound) {
@@ -214,6 +215,7 @@ exports.setProfilePhoto = async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 };
+
 
 
 // @desc    Get all profiles

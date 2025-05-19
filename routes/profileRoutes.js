@@ -30,7 +30,7 @@ const upload = require('../middlewares/upload');
 // ✅ Protected routes
 router.get('/me', protect, getMyProfile);
 router.post('/photo', protect,upload.array('photos', 5), createOrUpdateProfile);
-router.put('/profile/photo/set-profile/:filename', protect, setProfilePhoto);
+router.patch('/profile/photo/set-profile/:filename', protect, setProfilePhoto);
 router.delete('/profile/photo/:filename', protect, deletePhoto);
 
 
