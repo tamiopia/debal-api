@@ -181,7 +181,8 @@ const updateListing = async (req, res) => {
 
 const getMyListings = async (req, res) => {
   try {
-    const userId = req.user._id;
+    const userId = req.user.id;
+    console.log('User ID on listing:', userId);
 
     const listings = await HouseListing.find({ user_id: userId })
       .populate('rules') // Correct field name here
@@ -202,6 +203,9 @@ const getListingById = async (req, res) => {
   try {
     const { id } = req.params;
 
+    console.log('Requested Listing ID:', req.params.id);
+
+
     // Validate ObjectId
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).json({ error: 'Invalid listing ID' });
@@ -209,7 +213,7 @@ const getListingById = async (req, res) => {
 
     const listing = await HouseListing.findById(id)
       .populate('provider', 'name email') // adjust fields as needed
-      .populate('house_rules'); // Optional: populate related rules
+      .populate('rules'); // Optional: populate related rules
 
     if (!listing) {
       return res.status(404).json({ error: 'Listing not found' });

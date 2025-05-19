@@ -2,6 +2,8 @@ const Profile = require('../models/Profile');
 const User = require('../models/User');
 const fs = require('fs');
 const path = require('path');
+const dotenv = require('dotenv');
+require('dotenv').config();
 // @desc    Get current user's profile
 // @route   GET /api/profiles/me
 exports.getMyProfile = async (req, res) => {
@@ -502,80 +504,125 @@ exports.savePrivacy = async (req, res) => {
 
 const RecommendationService = require('../services/recommendationService');
 
+
+
+
+// controllers/profileController.js
+const { formatForAI } = require('../utils/aiDataFormatter');
+const axios = require('axios');
+
+
 exports.markFormCompleted = async (req, res) => {
   try {
-    // 1. Update profile completion status
+    // 1. Update profile completion status and get full profile data
     const profile = await Profile.findOneAndUpdate(
-      { user: req.user.id },
+      { user: req.user._id },
       { form_completed: true },
       { new: true }
-    ).populate('user');
+    ).lean();
 
-    // 2. Prepare data for AI model
-    const userDataForAI = {
-      age: profile.age,
-      gender: profile.gender,
-      personality_type: profile.personalityType,
-      sleep_pattern: profile.sleepPattern,
-      hobbies: profile.hobbies,
-      pet_tolerance: profile.petPreference,
-      has_pets: profile.hasPets ? 'yes' : 'no',
-      smoking: profile.smoking ? 'Smoker' : 'Non-smoker',
-      cleanliness_level: profile.cleanlinessLevel,
-      is_mock: 0 // This is a real user
-    };
-
-    // 3. Add user to AI model
-    const aiResponse = await axios.post(
-      `${process.env.AI_SERVICE_URL}/add_model_user`,
-      userDataForAI,
-      {
-        headers: { 'Content-Type': 'application/json' }
-      }
-    );
-
-    // 4. Get recommendations from AI
-    const recommendations = await axios.get(
-      `${process.env.AI_SERVICE_URL}/recommend/${aiResponse.data.user_id}`
-    );
-
-    // 5. Save recommendations to profile
-    profile.recommendations = recommendations.data.recommendations;
-    await profile.save();
-
-    // 6. Schedule daily updates if enabled
-    if (profile.recommendationSettings?.dailyUpdates) {
-      const { scheduleDailyUpdates } = require('../utils/scheduler');
-      scheduleDailyUpdates(req.user.id);
-    }
-
-    res.json({
-      success: true,
-      data: {
-        profile: profile.toObject(),
-        recommendations: recommendations.data.recommendations,
-        aiUserId: aiResponse.data.user_id // Store this for future updates
-      },
-      message: "Profile completed successfully. Initial matches generated."
-    });
-
-  } catch (err) {
-    console.error('Profile completion error:', err);
-    
-    // Check for specific AI service errors
-    if (err.response?.data) {
-      return res.status(502).json({ 
+    if (!profile) {
+      return res.status(404).json({ 
         success: false,
-        error: "AI service error: " + err.response.data.detail,
-        code: "AI_SERVICE_ERROR"
+        error: "Profile not found" 
       });
     }
 
-    res.status(500).json({ 
-      success: false,
-      error: err.message,
-      code: "RECOMMENDATION_FAILED"
+    // 2. Format profile data for AI service
+    const aiData = formatForAI({
+      ...profile,
+      // Map any differently named fields
+      smoking: profile.smoking_preference,
+      has_pets: profile.has_pets
     });
+
+    console.log('Formatted AI Data:', aiData);
+
+    // 3. Add user to AI model
+    const aiResponse = await axios.post(
+      `https://60b9-35-243-230-231.ngrok-free.app/add_model_user`,
+      aiData,
+      { 
+        headers: { 'Content-Type': 'application/json' },
+        timeout: 10000 // 10 second timeout
+      }
+    );
+
+    // 4. Get initial recommendations
+    const recommendationsResponse = await axios.get(
+      `https://60b9-35-243-230-231.ngrok-free.app/recommend/${aiResponse.data.user_id}`,
+      { 
+        params: { n: profile.recommendationSettings?.minMatches || 5 },
+        timeout: 10000
+      }
+    );
+
+    // 5. Update profile with recommendations
+    const updatedProfile = await Profile.findOneAndUpdate(
+      { user: req.user._id },
+      {
+        $set: {
+          aiUserId: aiResponse.data.user_id,
+          recommendations: recommendationsResponse.data.recommendations.map(rec => ({
+            userId: rec.user_id,
+            matchPercentage: Math.round(rec.compatibility_score * 100),
+            lastUpdated: new Date(),
+            compatibilityFactors: {
+              lifestyle: Math.round((rec.compatibility_score * 0.4) * 100),
+              habits: Math.round((rec.compatibility_score * 0.3) * 100),
+              interests: Math.round((rec.compatibility_score * 0.3) * 100)
+            },
+            clusterId: rec.cluster_id
+          })),
+          'metrics.clusterId': recommendationsResponse.data.cluster_info?.cluster_id,
+          'metrics.lastRecommendationUpdate': new Date()
+        }
+      },
+      { new: true }
+    );
+
+    // 6. Schedule daily updates if enabled
+    if (profile.recommendationSettings?.dailyUpdates) {
+      const { scheduleRecommendationUpdates } = require('../services/scheduler');
+      scheduleRecommendationUpdates(req.user._id);
+    }
+
+    // 7. Return success response
+    res.json({
+      success: true,
+      message: "Profile completed and recommendations generated",
+      data: {
+        aiUserId: aiResponse.data.user_id,
+        recommendations: updatedProfile.recommendations,
+        clusterInfo: recommendationsResponse.data.cluster_info,
+        modelMetrics: recommendationsResponse.data.model_metrics
+      }
+    });
+
+  } catch (error) {
+    console.error('Profile completion error:', error);
+
+    // Enhanced error response
+    const errorResponse = {
+      success: false,
+      error: "Failed to complete profile",
+      code: "PROFILE_COMPLETION_FAILED"
+    };
+
+    if (error.response) {
+      // AI service returned an error
+      errorResponse.details = {
+        status: error.response.status,
+        message: error.response.data?.message || "AI service error",
+        code: error.response.data?.code
+      };
+    } else if (error.request) {
+      // The request was made but no response received
+      errorResponse.error = "AI service did not respond";
+      errorResponse.code = "AI_SERVICE_TIMEOUT";
+    }
+
+    res.status(error.response?.status || 500).json(errorResponse);
   }
 };
 exports.getRecommendations = async (req, res) => {
