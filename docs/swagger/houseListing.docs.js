@@ -4,7 +4,6 @@
  *   name: House Listings
  *   description: Property listing management
  */
-
 /**
  * @swagger
  * components:
@@ -67,6 +66,23 @@
  *           items:
  *             type: string
  *           example: ["parking", "laundry", "gym"]
+ *         availableFrom:
+ *           type: string
+ *           format: date
+ *           example: "2025-06-01"
+ *         rules:
+ *           type: object
+ *           additionalProperties:
+ *             type: string
+ *           example: { "noSmoking": "true", "noPets": "false" }
+ *         house_rules:
+ *           type: string
+ *           description: Mongo ObjectId referencing house rules
+ *         photos:
+ *           type: array
+ *           items:
+ *             type: string
+ *           example: ["img1.jpg", "img2.jpg"]
  *         images:
  *           type: array
  *           items:
@@ -100,10 +116,6 @@
  *             updatedAt:
  *               type: string
  *               format: date-time
- *           required:
- *             - _id
- *             - provider
- *             - status
  * 
  *     Error:
  *       type: object
@@ -112,7 +124,6 @@
  *           type: string
  *           example: "Error message"
  */
-
 /**
  * @swagger
  * /listings:
@@ -148,7 +159,6 @@
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-
 /**
  * @swagger
  * /listings/search:
@@ -161,28 +171,24 @@
  *         name: minPrice
  *         schema:
  *           type: number
- *         description: Minimum rent amount
  *       - in: query
  *         name: maxPrice
  *         schema:
  *           type: number
- *         description: Maximum rent amount
  *       - in: query
  *         name: bedrooms
  *         schema:
  *           type: integer
- *         description: Minimum number of bedrooms
  *       - in: query
  *         name: location
  *         schema:
  *           type: string
- *         description: Comma-separated longitude,latitude coordinates (e.g., "-73.9857,40.7484")
+ *           example: "-73.9857,40.7484"
  *       - in: query
  *         name: radius
  *         schema:
  *           type: number
  *           default: 10
- *         description: Search radius in miles from location (default 10 miles)
  *     responses:
  *       200:
  *         description: List of matching properties
@@ -192,6 +198,114 @@
  *               type: array
  *               items:
  *                 $ref: '#/components/schemas/Listing'
+ *       500:
+ *         description: Internal server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+/**
+ * @swagger
+ * /listings/feed:
+ *   get:
+ *     summary: Get latest property listings feed
+ *     description: Public feed showing all available property listings, ordered by newest first
+ *     tags: [House Listings]
+ *     responses:
+ *       200:
+ *         description: Successfully fetched listings feed
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 listings:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Listing'
+ *       500:
+ *         description: Internal server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+/**
+ * @swagger
+ * /listings/my-listings:
+ *   get:
+ *     summary: Get my house listings
+ *     description: Retrieves all listings created by the currently logged-in provider
+ *     tags: [House Listings]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Successfully fetched listings
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 listings:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Listing'
+ *       401:
+ *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       500:
+ *         description: Internal server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+/**
+ * @swagger
+ * /listings/{id}:
+ *   patch:
+ *     summary: Update a house listing
+ *     description: Update a house listing by ID. Only the listing owner can perform this action.
+ *     tags: [House Listings]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The ID of the listing to update
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             $ref: '#/components/schemas/ListingInput'
+ *     responses:
+ *       200:
+ *         description: Listing updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Listing'
+ *       404:
+ *         description: Listing not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       403:
+ *         description: Forbidden - Not your listing
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
  *       500:
  *         description: Internal server error
  *         content:

@@ -4,7 +4,7 @@ const houseListingSchema = new mongoose.Schema({
   provider: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'HouseProvider',
-    required: true
+    required: false
   },
   user_id: {
     type: mongoose.Schema.Types.ObjectId,
@@ -14,7 +14,7 @@ const houseListingSchema = new mongoose.Schema({
   house_rules: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'HouseRules',
-    required: true
+    required: false
   },
 
 
@@ -58,7 +58,15 @@ const houseListingSchema = new mongoose.Schema({
     type: String,
     enum: ['available', 'occupied', 'maintenance'],
     default: 'available'
-  }
+  },
+  photos: [{
+    url: String,
+    description: String
+  }],
+  createdAt: {
+    type: Date,
+    default: Date.now
+  },
 }, { timestamps: true });
 
 module.exports = mongoose.model('HouseListing', houseListingSchema);

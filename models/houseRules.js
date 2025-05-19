@@ -14,7 +14,7 @@ const houseRuleSchema = new mongoose.Schema({
     provider: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'HouseProvider',
-        required: true,
+        required: false,
     },
     description: {
         type: String,

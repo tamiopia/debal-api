@@ -1,33 +1,259 @@
 const HouseListing = require('../models/HouseListing');
+const HouseProvider = require('../models/HouseProvider');
+const HouseRule = require('../models/houseRules');
+const User = require('../models/User');
 
-// Create new listing
+const mongoose = require('mongoose');
+
+// Create a new house listing
 const createListing = async (req, res) => {
   try {
-    const provider = await HouseProvider.findOne({ user: req.user.id });
-    if (!provider) {
-      return res.status(403).json({ error: 'Only verified providers can create listings' });
-    }
+    const {
+      title,
+      description,
+      address,
+      rent,
+      bedrooms,
+      bathrooms,
+      amenities,
+      availableFrom,
+      rules,
+      house_rules,
+      photos // this should be a JSON stringified array from the frontend
+    } = req.body;
 
-    const listingData = {
-      provider: provider._id,
-      ...req.body
+    const parseIfString = (val) => {
+      if (typeof val === 'string') {
+        try {
+          return JSON.parse(val);
+        } catch (e) {
+          console.warn(`Failed to parse value: ${val}`);
+          return val;
+        }
+      }
+      return val;
     };
 
-    // Handle image uploads
-    if (req.files) {
-      listingData.images = req.files.map(file => `/uploads/${file.filename}`);
+    const parsedAddress = parseIfString(address) || {};
+    const parsedRent = parseIfString(rent) || {};
+    const parsedRules = parseIfString(rules) || {};
+    const parsedAmenities = parseIfString(amenities) || [];
+    const parsedPhotos = parseIfString(photos) || [];
+
+    // Validate house_rules ObjectId
+    if (!mongoose.Types.ObjectId.isValid(house_rules)) {
+      return res.status(400).json({ error: 'Invalid house_rules ID' });
     }
 
-    const listing = await HouseListing.create(listingData);
-    
-    // Add to provider's properties
-    await HouseProvider.findByIdAndUpdate(provider._id, {
-      $push: { properties: listing._id }
+    const imageFilenames = req.files
+      ? req.files.map(file => `uploads/houselistings/${file.filename}`)
+      : [];
+
+    const newListing = new HouseListing({
+      user_id: req.user._id,
+      provider: req.user.role === 'provider' ? req.user._id : null,
+      house_rules: house_rules,
+      title,
+      description,
+      address: {
+        ...parsedAddress,
+        coordinates: parsedAddress.coordinates || [0, 0]
+      },
+      rent: parsedRent,
+      bedrooms,
+      bathrooms,
+      amenities: parsedAmenities,
+      availableFrom,
+      rules: parsedRules,
+      status: 'available',
+      images: imageFilenames,
+      photos: parsedPhotos
     });
 
-    res.status(201).json(listing);
+    const saved = await newListing.save();
+
+    res.status(201).json({ message: 'House listing created successfully', listing: saved });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('Create listing error:', err);
+    res.status(500).json({
+      error: 'Failed to create listing',
+      detail: err.message
+    });
+  }
+};
+
+const updateListing = async (req, res) => {
+  try {
+    const listingId = req.params.id;
+
+    // Parse potentially stringified JSON fields
+    const parseIfString = (val) => {
+      if (typeof val === 'string') {
+        try {
+          return JSON.parse(val);
+        } catch (e) {
+          console.warn(`Failed to parse value: ${val}`);
+          return val;
+        }
+      }
+      return val;
+    };
+
+    const {
+      title,
+      description,
+      address,
+      rent,
+      bedrooms,
+      bathrooms,
+      amenities,
+      availableFrom,
+      rules,
+      house_rules,
+      photos
+    } = req.body;
+
+    const parsedAddress = parseIfString(address) || {};
+    const parsedRent = parseIfString(rent) || {};
+    const parsedRules = parseIfString(rules) || {};
+    const parsedAmenities = parseIfString(amenities) || [];
+    const parsedPhotos = parseIfString(photos) || [];
+
+    // Validate house_rules ObjectId
+    if (house_rules && !mongoose.Types.ObjectId.isValid(house_rules)) {
+      return res.status(400).json({ error: 'Invalid house_rules ID' });
+    }
+
+    const imageFilenames = req.files
+      ? req.files.map(file => `uploads/houselistings/${file.filename}`)
+      : [];
+
+    // Prepare update object
+    const updatedData = {
+      ...(title && { title }),
+      ...(description && { description }),
+      ...(address && {
+        address: {
+          ...parsedAddress,
+          coordinates: parsedAddress.coordinates || [0, 0]
+        }
+      }),
+      ...(rent && { rent: parsedRent }),
+      ...(bedrooms && { bedrooms }),
+      ...(bathrooms && { bathrooms }),
+      ...(amenities && { amenities: parsedAmenities }),
+      ...(availableFrom && { availableFrom }),
+      ...(rules && { rules: parsedRules }),
+      ...(house_rules && { house_rules }),
+      ...(photos && { photos: parsedPhotos }),
+    };
+
+    if (imageFilenames.length > 0) {
+      updatedData.images = imageFilenames;
+    }
+
+    const updatedListing = await HouseListing.findByIdAndUpdate(
+      listingId,
+      { $set: updatedData },
+      { new: true }
+    );
+
+    if (!updatedListing) {
+      return res.status(404).json({ error: 'Listing not found' });
+    }
+
+    res.status(200).json({
+      message: 'House listing updated successfully',
+      listing: updatedListing
+    });
+
+  } catch (err) {
+    console.error('Update listing error:', err);
+    res.status(500).json({
+      error: 'Failed to update listing',
+      detail: err.message
+    });
+  }
+};
+
+
+
+
+const getMyListings = async (req, res) => {
+  try {
+    const userId = req.user._id;
+
+    const listings = await HouseListing.find({ user_id: userId })
+      .populate('rules') // Correct field name here
+      .sort({ createdAt: -1 });
+
+    res.status(200).json({ listings });
+  } catch (err) {
+    console.error('Get my listings error:', err);
+    res.status(500).json({
+      error: 'Failed to retrieve listings',
+      detail: err.message
+    });
+  }
+};
+
+
+const getListingsFeed = async (req, res) => {
+  try {
+    const listings = await HouseListing.find({ status: 'available' })
+      .populate('user_id', 'fullName profilePicture') // get poster's name and photo
+      .populate('rules', 'name description')     // rule details
+      .sort({ createdAt: -1 }) // newest first
+      .limit(50); // optional: limit number of listings
+
+    res.status(200).json({ listings });
+  } catch (err) {
+    console.error('Feed fetch error:', err.message);
+    res.status(500).json({
+      error: 'Failed to retrieve feed',
+      detail: err.message
+    });
+  }
+};
+
+
+
+// Get filtered house listings (feed)
+exports.getHouseListingFeed = async (req, res) => {
+  try {
+    const { minPrice, maxPrice, city, radius, lat, lng } = req.query;
+
+    let filter = {};
+
+    if (minPrice || maxPrice) {
+      filter['rent.amount'] = {};
+      if (minPrice) filter['rent.amount'].$gte = parseFloat(minPrice);
+      if (maxPrice) filter['rent.amount'].$lte = parseFloat(maxPrice);
+    }
+
+    if (city) {
+      filter['address.city'] = new RegExp(city, 'i');
+    }
+
+    if (lat && lng && radius) {
+      const radiusInRadians = parseFloat(radius) / 6378.1;
+      filter['address.coordinates'] = {
+        $geoWithin: {
+          $centerSphere: [[parseFloat(lng), parseFloat(lat)], radiusInRadians]
+        }
+      };
+    }
+
+    const listings = await HouseListing.find(filter)
+      .populate('provider', 'companyName')
+      .populate('user_id', 'first_name last_name')
+      .populate('house_rules')
+      .sort({ createdAt: -1 });
+
+    res.json(listings);
+  } catch (error) {
+    console.error('Feed error:', error);
+    res.status(500).json({ error: 'Failed to fetch listings' });
   }
 };
 
@@ -130,4 +356,4 @@ const calculateListingScore = (listing, userPrefs) => {
 };
 
 
-module.exports = { searchListings, createListing,getLocationBasedFeed };
+module.exports = { searchListings,getMyListings,getListingsFeed, updateListing,createListing,getLocationBasedFeed };
