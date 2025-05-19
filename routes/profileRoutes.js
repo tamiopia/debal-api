@@ -18,7 +18,9 @@ const {
   savePrivacy,
   markFormCompleted,
   getRecommendations,
-  updateRecommendationSettings
+  updateRecommendationSettings,
+  setProfilePhoto,
+  deletePhoto
 
 } = require('../controllers/profileController');
 
@@ -28,6 +30,10 @@ const upload = require('../middlewares/upload');
 // ✅ Protected routes
 router.get('/me', protect, getMyProfile);
 router.post('/photo', protect,upload.array('photos', 5), createOrUpdateProfile);
+router.put('/profile/photo/set-profile/:filename', protect, setProfilePhoto);
+router.delete('/profile/photo/:filename', protect, deletePhoto);
+
+
 
 // ✅ Step-wise protected profile completion
 router.post("/personal-info", protect, savePersonalInfo);

@@ -9,6 +9,32 @@ const profileSchema = new mongoose.Schema({
   },
 
   // Personal Information
+  bio: {
+    type: String,
+    maxlength: 500 // Max length for bio
+  },
+  phone_number:{
+    type: String,
+    maxlength: 20
+  },
+  social_media_links: {
+    facebook: String,
+    instagram: String,
+    twitter: String,
+    linkedin: String,
+    telegram: String
+  },
+  recommendations: [{
+    userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    matchPercentage: Number,
+    lastUpdated: Date,
+    compatibilityFactors: {
+      lifestyle: Number,
+      habits: Number,
+      interests: Number
+    }
+  }],
+
   age: {
     type: Number,
     min: 18, // Must be at least 18
@@ -181,7 +207,8 @@ const profileSchema = new mongoose.Schema({
   photos: [{
     url: String,
     filename: String,
-    mimetype: String
+    mimetype: String,
+    isProfile: { type: Boolean, default: false }
   }],
   location: {
     city: String,
@@ -191,16 +218,7 @@ const profileSchema = new mongoose.Schema({
       index: '2dsphere'
     }
   },
-  recommendations: [{
-    userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-    matchPercentage: Number,
-    lastUpdated: Date,
-    compatibilityFactors: {
-      lifestyle: Number,
-      habits: Number,
-      interests: Number
-    }
-  }],
+  
   recommendationSettings: {
     dailyUpdates: { type: Boolean, default: true },
     minMatchPercentage: { type: Number, default: 70 }

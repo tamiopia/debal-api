@@ -1,7 +1,7 @@
 const Profile = require('../models/Profile');
 const User = require('../models/User');
 const fs = require('fs');
-
+const path = require('path');
 // @desc    Get current user's profile
 // @route   GET /api/profiles/me
 exports.getMyProfile = async (req, res) => {
@@ -13,6 +13,15 @@ exports.getMyProfile = async (req, res) => {
       return res.status(404).json({ error: 'Profile not found' });
     }
 
+    // Optional: normalize budget_range if stored as string or array
+    let budgetRangeFormatted = profile.budget_range;
+    if (Array.isArray(profile.budget_range)) {
+      budgetRangeFormatted = {
+        min: profile.budget_range[0],
+        max: profile.budget_range[1]
+      };
+    }
+
     res.json({
       user: profile.user,
       personalInfo: {
@@ -20,7 +29,10 @@ exports.getMyProfile = async (req, res) => {
         gender: profile.gender,
         occupation: profile.occupation,
         religion: profile.religion,
-        relationship_status: profile.relationship_status
+        relationship_status: profile.relationship_status,
+        bio: profile.bio,
+        phone_number: profile.phone_number,
+        social_media_links: profile.social_media_links
       },
       lifestyle: {
         personality_type: profile.personality_type,
@@ -34,7 +46,7 @@ exports.getMyProfile = async (req, res) => {
       hobbies: profile.hobbies,
       financial: {
         income_level: profile.income_level,
-        budget_range: profile.budget_range
+        budget_range: budgetRangeFormatted
       },
       sharedLiving: {
         cleanliness_level: profile.cleanliness_level,
@@ -65,67 +77,144 @@ exports.getMyProfile = async (req, res) => {
       form_completed: profile.form_completed,
       recommendationSettings: profile.recommendationSettings
     });
-    
+
   } catch (err) {
+    console.error("Get Profile Error:", err);
     res.status(500).json({ error: err.message });
   }
 };
+
 
 // @desc    Create or update profile
 // @route   POST /api/profiles
 exports.createOrUpdateProfile = async (req, res) => {
   try {
-    // Get uploaded files
-    const photos = req.files?.map(file => ({
+    // Parse the is_profile_flags array from form
+    const isProfileFlags = req.body.is_profile_flags || [];
+
+    const newPhotos = req.files?.map((file, index) => ({
       url: file.path,
       filename: file.filename,
-      mimetype: file.mimetype
+      mimetype: file.mimetype,
+      is_profile: isProfileFlags[index] === 'true' // Accept only true string
     })) || [];
 
-    // Build profile object
-    const profileFields = {
-      user: req.user.id,
-      photos
-    };
+    // If multiple have is_profile true, keep only the last one
+    let profilePhotoIndex = newPhotos.findIndex(p => p.is_profile);
+    if (profilePhotoIndex !== -1) {
+      newPhotos = newPhotos.map((photo, i) => ({
+        ...photo,
+        is_profile: i === profilePhotoIndex
+      }));
+    }
 
     let profile = await Profile.findOne({ user: req.user.id });
 
     if (profile) {
-      // Delete old photos if they exist
-      if (profile.photos?.length) {
-        profile.photos.forEach(photo => {
-          fs.unlink(photo.url, err => {
-            if (err) console.error('Error deleting old photo:', err);
-          });
-        });
-      }
-      
-      // Update profile
-      profile = await Profile.findOneAndUpdate(
-        { user: req.user.id },
-        { $set: profileFields },
-        { new: true }
-      );
+      // Append new photos to existing ones
+      profile.photos = [...profile.photos, ...newPhotos];
+
+      // Ensure only one profile photo overall
+      const allPhotos = profile.photos;
+      const lastProfilePhotoIndex = [...allPhotos].reverse().findIndex(p => p.is_profile);
+      const correctIndex = allPhotos.length - 1 - lastProfilePhotoIndex;
+      profile.photos = allPhotos.map((photo, idx) => ({
+        ...photo,
+        is_profile: idx === correctIndex
+      }));
+
+      await profile.save();
       return res.json(profile);
     }
 
     // Create new profile
+    const profileFields = {
+      user: req.user.id,
+      photos: newPhotos
+    };
+
     profile = new Profile(profileFields);
     await profile.save();
     res.json(profile);
 
   } catch (err) {
-    // Delete any uploaded files if error occurs
     if (req.files?.length) {
       req.files.forEach(file => {
         fs.unlink(file.path, err => {
-          if (err) console.error('Error cleaning up uploaded file:', err);
+          if (err) console.error('Cleanup error:', err);
         });
       });
     }
     res.status(500).json({ error: err.message });
   }
 };
+
+exports.deletePhoto = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const filename = req.params.filename;
+
+    const profile = await Profile.findOne({ user: userId });
+    if (!profile) {
+      return res.status(404).json({ error: 'Profile not found' });
+    }
+
+    const photoIndex = profile.photos.findIndex(photo => photo.filename === filename);
+    if (photoIndex === -1) {
+      return res.status(404).json({ error: 'Photo not found' });
+    }
+
+    const photo = profile.photos[photoIndex];
+
+    // Delete file from disk
+    fs.unlink(photo.url, (err) => {
+      if (err) console.error('Error deleting file from disk:', err);
+    });
+
+    // Remove photo from array
+    profile.photos.splice(photoIndex, 1);
+
+    await profile.save();
+
+    res.json({ message: 'Photo deleted successfully', profile });
+
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+exports.setProfilePhoto = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const filename = req.params.filename;
+
+    const profile = await Profile.findOne({ user: userId });
+    if (!profile) {
+      return res.status(404).json({ error: 'Profile not found' });
+    }
+
+    let photoFound = false;
+
+    profile.photos = profile.photos.map(photo => {
+      if (photo.filename === filename) {
+        photoFound = true;
+        return { ...photo.toObject(), is_profile: true };
+      }
+      return { ...photo.toObject(), is_profile: false };
+    });
+
+    if (!photoFound) {
+      return res.status(404).json({ error: 'Photo not found' });
+    }
+
+    await profile.save();
+    res.json({ message: 'Profile photo updated', profile });
+
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
 
 // @desc    Get all profiles
 // @route   GET /api/profiles
@@ -150,14 +239,80 @@ exports.getProfileByUserId = async (req, res) => {
       return res.status(404).json({ error: 'Profile not found' });
     }
 
-    res.json(profile);
-  } catch (err) {
-    if (err.kind == 'ObjectId') {
-      return res.status(404).json({ error: 'Profile not found' });
+    // Optional: normalize budget_range if stored as array
+    let budgetRangeFormatted = profile.budget_range;
+    if (Array.isArray(profile.budget_range)) {
+      budgetRangeFormatted = {
+        min: profile.budget_range[0],
+        max: profile.budget_range[1]
+      };
     }
+
+    res.json({
+      user: profile.user,
+      personalInfo: {
+        age: profile.age,
+        gender: profile.gender,
+        occupation: profile.occupation,
+        religion: profile.religion,
+        relationship_status: profile.relationship_status,
+        bio: profile.bio,
+        phone_number: profile.phone_number,
+        social_media_links: profile.social_media_links
+      },
+      lifestyle: {
+        personality_type: profile.personality_type,
+        daily_routine: profile.daily_routine,
+        sleep_pattern: profile.sleep_pattern
+      },
+      neighborhoodPrefs: {
+        preferred_location_type: profile.preferred_location_type,
+        commute_tolerance_minutes: profile.commute_tolerance_minutes
+      },
+      hobbies: profile.hobbies,
+      financial: {
+        income_level: profile.income_level,
+        budget_range: budgetRangeFormatted
+      },
+      sharedLiving: {
+        cleanliness_level: profile.cleanliness_level,
+        chore_sharing_preference: profile.chore_sharing_preference,
+        noise_tolerance: profile.noise_tolerance,
+        guest_frequency: profile.guest_frequency,
+        party_habits: profile.party_habits
+      },
+      pets: {
+        has_pets: profile.has_pets,
+        pet_tolerance: profile.pet_tolerance
+      },
+      food: {
+        cooking_frequency: profile.cooking_frequency,
+        diet_type: profile.diet_type,
+        shared_groceries: profile.shared_groceries
+      },
+      work: {
+        work_hours: profile.work_hours,
+        works_from_home: profile.works_from_home,
+        chronotype: profile.chronotype
+      },
+      privacy: {
+        privacy_level: profile.privacy_level,
+        shared_space_usage: profile.shared_space_usage
+      },
+      photos: profile.photos,
+      form_completed: profile.form_completed,
+      recommendationSettings: profile.recommendationSettings
+    });
+
+  } catch (err) {
+    if (err.kind === 'ObjectId') {
+      return res.status(404).json({ error: 'Invalid user ID format' });
+    }
+    console.error('Error fetching profile by userId:', err);
     res.status(500).json({ error: err.message });
   }
 };
+
 
 
 
@@ -174,15 +329,45 @@ const updateOrCreateProfile = async (userId, updateData) => {
 // Page 1 - Personal Info
 exports.savePersonalInfo = async (req, res) => {
   try {
-    const profile = await updateOrCreateProfile(req.user.id, {
-      age: req.body.age,
-      gender: req.body.gender,
-      occupation: req.body.occupation,
-      religion: req.body.religion,
-      relationship_status: req.body.relationship_status,
-    });
+    const {
+      age,
+      gender,
+      occupation,
+      religion,
+      relationship_status,
+      bio,
+      phone_number,
+      social_media_links,
+      fullname
+    } = req.body;
+
+    // Update name in User model if fullname is provided
+    if (fullname) {
+      await User.findByIdAndUpdate(req.user.id, { name: fullname });
+    }
+
+    // Update or create the profile
+    const profile = await Profile.findOneAndUpdate(
+      { user: req.user.id },
+      {
+        $set: {
+          age,
+          gender,
+          occupation,
+          religion,
+          relationship_status,
+          bio,
+          phone_number,
+          social_media_links
+        }
+      },
+      { new: true, upsert: true }
+    );
+
     res.json(profile);
+
   } catch (err) {
+    console.error('Error saving personal info:', err);
     res.status(500).json({ error: err.message });
   }
 };
@@ -383,3 +568,14 @@ exports.updateRecommendationSettings = async (req, res) => {
   }
 };
 
+//add social media links
+exports.saveSocialMediaLinks = async (req, res) => {
+  try {
+    const profile = await updateOrCreateProfile(req.user.id, {
+      social_media_links: req.body
+    });
+    res.json(profile);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
