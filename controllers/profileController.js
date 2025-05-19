@@ -504,21 +504,46 @@ const RecommendationService = require('../services/recommendationService');
 
 exports.markFormCompleted = async (req, res) => {
   try {
-    // Update profile completion status
+    // 1. Update profile completion status
     const profile = await Profile.findOneAndUpdate(
       { user: req.user.id },
       { form_completed: true },
       { new: true }
     ).populate('user');
 
-    // Get initial recommendations
-    const recommendations = await RecommendationService.getRecommendations(profile);
-    
-    // Save recommendations
-    profile.recommendations = recommendations;
+    // 2. Prepare data for AI model
+    const userDataForAI = {
+      age: profile.age,
+      gender: profile.gender,
+      personality_type: profile.personalityType,
+      sleep_pattern: profile.sleepPattern,
+      hobbies: profile.hobbies,
+      pet_tolerance: profile.petPreference,
+      has_pets: profile.hasPets ? 'yes' : 'no',
+      smoking: profile.smoking ? 'Smoker' : 'Non-smoker',
+      cleanliness_level: profile.cleanlinessLevel,
+      is_mock: 0 // This is a real user
+    };
+
+    // 3. Add user to AI model
+    const aiResponse = await axios.post(
+      `${process.env.AI_SERVICE_URL}/add_model_user`,
+      userDataForAI,
+      {
+        headers: { 'Content-Type': 'application/json' }
+      }
+    );
+
+    // 4. Get recommendations from AI
+    const recommendations = await axios.get(
+      `${process.env.AI_SERVICE_URL}/recommend/${aiResponse.data.user_id}`
+    );
+
+    // 5. Save recommendations to profile
+    profile.recommendations = recommendations.data.recommendations;
     await profile.save();
 
-    // Schedule daily updates if enabled
+    // 6. Schedule daily updates if enabled
     if (profile.recommendationSettings?.dailyUpdates) {
       const { scheduleDailyUpdates } = require('../utils/scheduler');
       scheduleDailyUpdates(req.user.id);
@@ -528,12 +553,24 @@ exports.markFormCompleted = async (req, res) => {
       success: true,
       data: {
         profile: profile.toObject(),
-        recommendations: recommendations
+        recommendations: recommendations.data.recommendations,
+        aiUserId: aiResponse.data.user_id // Store this for future updates
       },
       message: "Profile completed successfully. Initial matches generated."
     });
 
   } catch (err) {
+    console.error('Profile completion error:', err);
+    
+    // Check for specific AI service errors
+    if (err.response?.data) {
+      return res.status(502).json({ 
+        success: false,
+        error: "AI service error: " + err.response.data.detail,
+        code: "AI_SERVICE_ERROR"
+      });
+    }
+
     res.status(500).json({ 
       success: false,
       error: err.message,

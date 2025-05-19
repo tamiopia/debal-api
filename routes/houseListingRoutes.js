@@ -8,12 +8,14 @@ const {
   getLocationBasedFeed,
   getMyListings,
   updateListing,
-  getListingsFeed
+  getListingsFeed,
+  getListingById
 } = require('../controllers/houseListingController');
 
 
 router.post('/', protect, upload.array('images', 10), createListing);
 router.patch('/:id', protect, upload.array('images', 10), updateListing);
+router.get("/:id", protect, getListingById);
 router.get('/my-listings', protect,getMyListings);
 router.get('/search', searchListings);
 // In houseListingRoutes.js

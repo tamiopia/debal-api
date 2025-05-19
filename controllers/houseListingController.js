@@ -198,6 +198,33 @@ const getMyListings = async (req, res) => {
 };
 
 
+const getListingById = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Validate ObjectId
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ error: 'Invalid listing ID' });
+    }
+
+    const listing = await HouseListing.findById(id)
+      .populate('provider', 'name email') // adjust fields as needed
+      .populate('house_rules'); // Optional: populate related rules
+
+    if (!listing) {
+      return res.status(404).json({ error: 'Listing not found' });
+    }
+
+    res.status(200).json(listing);
+  } catch (err) {
+    console.error('Error fetching listing:', err);
+    res.status(500).json({ error: 'Server error', detail: err.message });
+  }
+};
+
+
+
+
 const getListingsFeed = async (req, res) => {
   try {
     const listings = await HouseListing.find({ status: 'available' })
@@ -356,4 +383,4 @@ const calculateListingScore = (listing, userPrefs) => {
 };
 
 
-module.exports = { searchListings,getMyListings,getListingsFeed, updateListing,createListing,getLocationBasedFeed };
+module.exports = { searchListings,getMyListings,getListingsFeed, updateListing,createListing,getLocationBasedFeed,getListingById };
