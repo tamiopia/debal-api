@@ -21,7 +21,7 @@ const registerProvider = async (req, res) => {
     });
 
     // Update user role
-    await User.findByIdAndUpdate(userId, { role: 'provider' });
+    await User.findByIdAndUpdate(userId, { role: 'houseprovider' });
 
     res.status(201).json(provider);
   } catch (err) {

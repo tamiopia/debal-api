@@ -1,52 +1,29 @@
 module.exports = (io) => {
-  io.on('connection', (socket) => {
-      console.log(`New connection: ${socket.id}`);
-
-      // Join user-specific room for notifications
+    io.on('connection', (socket) => {
+      console.log(`New client connected: ${socket.id}`);
+  
+      // Join user to their personal room
       socket.on('joinUserRoom', (userId) => {
-          socket.join(userId);
-          console.log(`User ${userId} connected`);
+        socket.join(`user_${userId}`);
+        console.log(`User ${userId} connected`);
       });
-
-      // Handle new messages
-      socket.on('sendMessage', async (messageData) => {
-          try {
-              // Save message to DB (implement in controller)
-              const savedMessage = await messageData.saveMessage();
-
-              // Broadcast to conversation room
-              io.to(messageData.conversationId).emit('newMessage', savedMessage);
-
-              // Notify recipient if offline
-              socket.to(messageData.recipientId).emit('messageNotification', {
-                  sender: messageData.senderName,
-                  preview: messageData.content.substring(0, 30)
-              });
-
-          } catch (err) {
-              console.error('Message error:', err);
-          }
+  
+      // Handle joining conversation rooms
+      socket.on('joinConversation', (conversationId) => {
+        socket.join(`conversation_${conversationId}`);
+        console.log(`User joined conversation ${conversationId}`);
       });
-
-      // Typing indicator
+  
+      // Handle real-time typing indicators
       socket.on('typing', (conversationId) => {
-          socket.to(conversationId).emit('userTyping', {
-              userId: socket.userId
-          });
+        socket.to(`conversation_${conversationId}`).emit('userTyping', {
+          userId: socket.userId
+        });
       });
-
-      // Mark message as read
-      socket.on('markAsRead', (messageIds, conversationId) => {
-          // Implement real-time marking as read
-          socket.to(conversationId).emit('messageRead', {
-              messageIds,
-              readAt: new Date()
-          });
-      });
-
-      // Disconnect
+  
+      // Handle disconnection
       socket.on('disconnect', () => {
-          console.log(`User disconnected: ${socket.id}`);
+        console.log(`Client disconnected: ${socket.id}`);
       });
-  });
-};
+    });
+  };
