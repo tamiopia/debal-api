@@ -202,17 +202,25 @@ const getMyListings = async (req, res) => {
 const getalllistings = async (req, res) => {
   try {
     const listings = await HouseListing.find()
-      .populate('provider', 'companyName contactPhone')
-      .populate('user_id', 'name')
-      .populate('rules')
-      .sort({ createdAt: -1 });
+      .populate('provider', 'companyName contactPhone')  // Populate provider details
+      .populate({
+        path: 'user_id',  // Populate the user model
+        select: 'name',   // Select the name from the user model
+        populate: {
+          path: 'profile', // Populate the profile model related to user_id
+          select: 'social_media_links phone_number' // Select profile fields
+        }
+      })
+      .populate('rules')  // Populate the rules
+      .sort({ createdAt: -1 });  // Sort by creation date
 
-    res.json(listings);
+    res.json(listings);  // Send the populated listings
   } catch (error) {
     console.error('Error fetching all listings:', error);
     res.status(500).json({ error: 'Failed to fetch listings' });
   }
 }
+
 
 const getListingById = async (req, res) => {
   try {
@@ -338,7 +346,9 @@ const searchListings = async (req, res) => {
     }
 
     const listings = await HouseListing.find(query)
-      .populate('provider', 'companyName contactPhone');
+      .populate('provider', 'companyName contactPhone')
+      .populate('user_id', 'first_name last_name')
+      .populate('house_rules')
 
     res.json(listings);
   } catch (err) {
@@ -494,7 +504,7 @@ const uploadimages = async (req, res) => {
 
       imageObjects.push({
         id: uniqueId,
-        url: `uploads/houselistings/${newFilename}`,
+        url: `uploads/${newFilename}`,
         description: '' // You can pass from req.body if needed
       });
     }
@@ -558,7 +568,7 @@ const updateimages = async (req, res) => {
 
       updatedPhotos.push({
         id: uuid,
-        url: `uploads/houselistings/${newFilename}`,
+        url: `uploads/${newFilename}`,
         description: ''
       });
     }
@@ -581,6 +591,51 @@ const updateimages = async (req, res) => {
   }
 };
 
+const deleteImage = async (req, res) => {
+  try {
+    const { listingId, imageId } = req.params; // Get listingId and imageId from URL params
+
+    if (!listingId || !imageId) {
+      return res.status(400).json({ error: 'Listing ID and Image ID are required' });
+    }
+
+    const listing = await HouseListing.findById(listingId);
+    if (!listing) {
+      return res.status(404).json({ error: 'Listing not found' });
+    }
+
+    // Find the image to remove in the listing
+    const imageIndex = listing.photos.findIndex(photo => photo.id === imageId);
+    if (imageIndex === -1) {
+      return res.status(404).json({ error: 'Image not found in listing' });
+    }
+
+    // Get the image path from the database
+    const imageToDelete = listing.photos[imageIndex];
+    const imagePath = path.join(__dirname, '..', imageToDelete.url);
+
+    // Delete image from the server
+    if (fs.existsSync(imagePath)) {
+      fs.unlinkSync(imagePath);
+    }
+
+    // Remove image from the listing's photos array
+    listing.photos.splice(imageIndex, 1);
+    await listing.save();
+
+    res.status(200).json({
+      message: 'Image deleted successfully',
+      images: listing.photos
+    });
+  } catch (err) {
+    console.error('Delete image error:', err);
+    res.status(500).json({
+      error: 'Failed to delete image',
+      detail: err.message
+    });
+  }
+};
 
 
-module.exports = { searchListings,getMyListings,getListingsFeed, updateListing,createListing,getLocationBasedFeed,getListingById ,getalllistings,DeleteListing,filterlistings,uploadimages,updateimages};
+
+module.exports = { searchListings,getMyListings,getListingsFeed, updateListing,createListing,getLocationBasedFeed,getListingById ,getalllistings,DeleteListing,filterlistings,uploadimages,updateimages,deleteImage};

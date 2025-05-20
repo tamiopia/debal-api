@@ -15,6 +15,7 @@ const {
   filterlistings,
   updateimages,
   uploadimages,
+  deleteImage
 } = require('../controllers/houseListingController');
 
 
@@ -22,6 +23,7 @@ router.post('/', protect, upload.array('images', 10), createListing);
 router.patch('/:id', protect, upload.array('images', 10), updateListing);
 router.post('/images/:listingId', protect, upload.array('images', 10), uploadimages);
 router.patch('/images/:listingId', protect, upload.array('images', 10), updateimages);
+router.delete('/images/:listingId/:imageId', protect, upload.array('images', 10), deleteImage);
 router.get('/:id', protect, getListingById);
 router.delete('/:id', protect, DeleteListing);
 router.get('/', protect,getMyListings);
