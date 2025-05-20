@@ -624,12 +624,33 @@ exports.markFormCompleted = async (req, res) => {
     res.status(error.response?.status || 500).json(errorResponse);
   }
 };
+
+// Example of a function to fetch user data by user_id from your database or external service.
+const getUserById = async (userId) => {
+  try {
+    // This should be a DB query or API request to fetch user info by user_id
+    // For example, using Mongoose (MongoDB):
+    const user = await User.findOne({ user_id: userId });
+    
+    if (!user) {
+      throw new Error(`User with ID ${userId} not found`);
+    }
+
+    return user;
+  } catch (err) {
+    console.error("Error fetching user:", err.message);
+    return null;
+  }
+};
+// Assuming a function that fetches user data by ID from your DB/API
+
 exports.getRecommendations = async (req, res) => {
   try {
     const minMatches = req.user.recommendationSettings?.minMatches || 5;
 
+    // Fetching recommendations from the AI API
     const recommendationsResponse = await axios.get(
-      `https://582a-35-243-230-231.ngrok-free.app/recommend/user_${req.user.id}`,
+      `https://0087-34-75-211-144.ngrok-free.app/recommend/user_${req.user.id}`,
       {
         params: { n: minMatches },
         timeout: 30000,
@@ -638,17 +659,50 @@ exports.getRecommendations = async (req, res) => {
 
     const data = recommendationsResponse.data;
 
-    // Check if data.recommendations is an array
+    // Check if recommendations is an array
     if (!Array.isArray(data.recommendations)) {
       throw new Error("Invalid recommendation format received from AI service");
     }
 
-    res.status(200).json(data); // Send the whole flat object
+    // Fetch user data for each recommended user ID
+    const recommendationsWithUserDetails = await Promise.all(
+      data.recommendations.map(async (recommendation) => {
+        // Fetch full user data by user_id
+
+        console.log("Recommendation User ID:", recommendation.user_id);
+        const user = await getUserById(recommendation.user_id);
+
+        // If user is found, add to the recommendation
+        if (user) {
+          return {
+            ...recommendation,
+            user_details: {
+              id: user.user_id,
+              name: user.name,
+              email: user.email, // Add any additional user info you need
+              profile_picture: user.profile_picture, // Example
+              // Add any other fields that are necessary
+            },
+          };
+        } else {
+          // If user data is not found, return the recommendation as is
+          return recommendation;
+        }
+      })
+    );
+
+    // Return the updated recommendations with user details
+    res.status(200).json({
+      recommendations: recommendationsWithUserDetails,
+      cluster_info: data.cluster_info,
+      model_metrics: data.model_metrics,
+    });
   } catch (err) {
     console.error("Error fetching recommendations:", err.message);
-    res.status(500).json({ error: "Invalid recommendation format received from AI service" });
+    res.status(500).json({ error: "Error fetching recommendations" });
   }
 };
+
 
 
 

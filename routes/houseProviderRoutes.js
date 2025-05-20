@@ -8,8 +8,9 @@ const {
 
 console.log({ registerProvider, getProviderProfile });
 
+
 // Make sure these are properly imported functions
-router.post('/register', registerProvider);
-router.get('/profile', getProviderProfile);
+router.post('/register',protect, registerProvider);
+router.get('/profile', protect,getProviderProfile);
 
 module.exports = router;

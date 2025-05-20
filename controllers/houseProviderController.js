@@ -29,12 +29,12 @@ const registerProvider = async (req, res) => {
   }
 };
 
-// Get provider profil
+// Get provider profile
 const getProviderProfile = async (req, res) => {
   try {
+    console.log(req.user.id);
     const provider = await HouseProvider.findOne({ user: req.user.id })
-      .populate('properties')
-      .populate('user', 'name email');
+      .populate('user', 'name email role');
 
     if (!provider) {
       return res.status(404).json({ error: 'Provider not found' });
