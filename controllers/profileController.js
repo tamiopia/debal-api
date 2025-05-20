@@ -10,7 +10,7 @@ exports.getMyProfile = async (req, res) => {
   try {
     const userId = req.user.id; // Get user ID from request
     const profile = await Profile.findOne({ user: req.user.id })
-      .populate('user', ['name', 'email', 'avatar']);
+      .populate('user', ['name', 'email', 'avatar','role']);
 
     if (!profile) {
       return res.status(404).json({ error: 'Profile not found' });
