@@ -463,5 +463,124 @@ const filterlistings = async (req, res) => {
   }
 }
 
+const { v4: uuidv4 } = require('uuid');
+const fs = require('fs');
+const path = require('path');
 
-module.exports = { searchListings,getMyListings,getListingsFeed, updateListing,createListing,getLocationBasedFeed,getListingById ,getalllistings,DeleteListing,filterlistings};
+const uploadimages = async (req, res) => {
+  try {
+    const { listingId } = req.params;
+
+    if (!listingId) {
+      return res.status(400).json({ error: 'Listing ID is required' });
+    }
+
+    const listing = await HouseListing.findById(listingId);
+
+    if (!listing) {
+      return res.status(404).json({ error: 'Listing not found' });
+    }
+
+    const imageObjects = [];
+
+    for (const file of req.files) {
+      const uniqueId = uuidv4();
+      const extension = path.extname(file.originalname);
+      const newFilename = `${uniqueId}${extension}`;
+      const newPath = path.join(file.destination, newFilename);
+
+      // Rename the file to use the UUID-based name
+      fs.renameSync(file.path, newPath);
+
+      imageObjects.push({
+        id: uniqueId,
+        url: `uploads/houselistings/${newFilename}`,
+        description: '' // You can pass from req.body if needed
+      });
+    }
+
+    listing.photos.push(...imageObjects);
+    await listing.save();
+
+    res.status(200).json({
+      message: 'Images uploaded successfully',
+      images: imageObjects
+    });
+  } catch (err) {
+    console.error('Upload images error:', err);
+    res.status(500).json({
+      error: 'Failed to upload images',
+      detail: err.message
+    });
+  }
+};
+
+
+
+
+
+// Update images for a listing
+
+const updateimages = async (req, res) => {
+  try {
+    const { listingId } = req.params;
+    const keepImages = req.body.keepImages ? JSON.parse(req.body.keepImages) : [];
+
+    if (!listingId) {
+      return res.status(400).json({ error: 'Listing ID is required' });
+    }
+
+    const listing = await HouseListing.findById(listingId);
+    if (!listing) {
+      return res.status(404).json({ error: 'Listing not found' });
+    }
+
+    // Delete any image not in keepImages
+    const imagesToDelete = listing.photos.filter(photo => !keepImages.includes(photo.id));
+    for (const photo of imagesToDelete) {
+      const fullPath = path.join(__dirname, '..', photo.url);
+      if (fs.existsSync(fullPath)) {
+        fs.unlinkSync(fullPath);
+      }
+    }
+
+    // Keep only those requested
+    const updatedPhotos = listing.photos.filter(photo => keepImages.includes(photo.id));
+
+    // Add new images with UUIDs
+    for (const file of req.files) {
+      const uuid = uuidv4();
+      const ext = path.extname(file.originalname);
+      const newFilename = `${uuid}${ext}`;
+      const newPath = path.join(file.destination, newFilename);
+
+      fs.renameSync(file.path, newPath); // rename file on disk
+
+      updatedPhotos.push({
+        id: uuid,
+        url: `uploads/houselistings/${newFilename}`,
+        description: ''
+      });
+    }
+
+    // Save updated list
+    listing.photos = updatedPhotos;
+    await listing.save();
+
+    res.status(200).json({
+      message: 'Images updated successfully',
+      images: updatedPhotos
+    });
+
+  } catch (err) {
+    console.error('Update images error:', err);
+    res.status(500).json({
+      error: 'Failed to update images',
+      detail: err.message
+    });
+  }
+};
+
+
+
+module.exports = { searchListings,getMyListings,getListingsFeed, updateListing,createListing,getLocationBasedFeed,getListingById ,getalllistings,DeleteListing,filterlistings,uploadimages,updateimages};
