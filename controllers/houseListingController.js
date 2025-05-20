@@ -201,49 +201,174 @@ const getMyListings = async (req, res) => {
 
 const getalllistings = async (req, res) => {
   try {
-    const listings = await HouseListing.find()
-      .populate('provider', 'companyName contactPhone')  // Populate provider details
-      .populate({
-        path: 'user_id',  // Populate the user model
-        select: 'name',   // Select the name from the user model
-        populate: {
-          path: 'profile', // Populate the profile model related to user_id
-          select: 'social_media_links phone_number' // Select profile fields
-        }
-      })
-      .populate('rules')  // Populate the rules
-      .sort({ createdAt: -1 });  // Sort by creation date
+    const listings = await HouseListing.aggregate([
+      { $sort: { createdAt: -1 } },
 
-    res.json(listings);  // Send the populated listings
-  } catch (error) {
-    console.error('Error fetching all listings:', error);
+      // Join with User
+      {
+        $lookup: {
+          from: 'users',
+          localField: 'user_id',
+          foreignField: '_id',
+          as: 'user'
+        }
+      },
+      { $unwind: '$user' },
+
+      // Join with Profile (reverse lookup via user._id = profile.user)
+      {
+        $lookup: {
+          from: 'profiles',
+          let: { userId: '$user._id' },
+          pipeline: [
+            { $match: { $expr: { $eq: ['$user', '$$userId'] } } },
+            { $project: { phone_number: 1, social_media_links: 1 } }
+          ],
+          as: 'user.profile'
+        }
+      },
+      {
+        $unwind: {
+          path: '$user.profile',
+          preserveNullAndEmptyArrays: true
+        }
+      },
+
+      // Optionally join with provider
+      {
+        $lookup: {
+          from: 'providers',
+          localField: 'provider',
+          foreignField: '_id',
+          as: 'provider'
+        }
+      },
+      {
+        $unwind: {
+          path: '$provider',
+          preserveNullAndEmptyArrays: true
+        }
+      },
+
+      // Final result projection
+      {
+        $project: {
+          _id: 1,
+          title: 1,
+          description: 1,
+          createdAt: 1,
+          'user.name': 1,
+          'user.profile.phone_number': 1,
+          'user.profile.social_media_links': 1,
+          'provider.companyName': 1,
+          'provider.contactPhone': 1
+        }
+      }
+    ]);
+
+    res.json(listings);
+  } catch (err) {
+    console.error('Error fetching all listings:', err);
     res.status(500).json({ error: 'Failed to fetch listings' });
   }
-}
+};
+
 
 
 const getListingById = async (req, res) => {
   try {
     const { id } = req.params;
 
-    console.log('Requested Listing ID:', req.params.id);
+    console.log('Requested Listing ID:', id);
 
-
-    // Validate ObjectId
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).json({ error: 'Invalid listing ID' });
     }
 
-    const listing = await HouseListing.findById(id)
-      .populate('provider', 'name email')
-      .populate('user_id', 'name') // adjust fields as needed
-      .populate('rules'); // Optional: populate related rules
+    const listings = await HouseListing.aggregate([
+      { $match: { _id: new mongoose.Types.ObjectId(id) } },
 
-    if (!listing) {
+      // Join with User
+      {
+        $lookup: {
+          from: 'users',
+          localField: 'user_id',
+          foreignField: '_id',
+          as: 'user'
+        }
+      },
+      { $unwind: '$user' },
+
+      // Join with Profile based on user._id
+      {
+        $lookup: {
+          from: 'profiles',
+          let: { userId: '$user._id' },
+          pipeline: [
+            { $match: { $expr: { $eq: ['$user', '$$userId'] } } },
+            { $project: { phone_number: 1, social_media_links: 1 } }
+          ],
+          as: 'user.profile'
+        }
+      },
+      {
+        $unwind: {
+          path: '$user.profile',
+          preserveNullAndEmptyArrays: true
+        }
+      },
+
+      // Join with provider
+      {
+        $lookup: {
+          from: 'providers',
+          localField: 'provider',
+          foreignField: '_id',
+          as: 'provider'
+        }
+      },
+      {
+        $unwind: {
+          path: '$provider',
+          preserveNullAndEmptyArrays: true
+        }
+      },
+
+      // Join with rules (optional)
+      {
+        $lookup: {
+          from: 'rules',
+          localField: 'rules',
+          foreignField: '_id',
+          as: 'rules'
+        }
+      },
+
+      // Final projection
+      {
+        $project: {
+          _id: 1,
+          title: 1,
+          description: 1,
+          createdAt: 1,
+          user: {
+            name: '$user.name',
+            profile: '$user.profile'
+          },
+          provider: {
+            name: '$provider.name',
+            email: '$provider.email'
+          },
+          rules: 1
+        }
+      }
+    ]);
+
+    if (!listings.length) {
       return res.status(404).json({ error: 'Listing not found' });
     }
 
-    res.status(200).json(listing);
+    res.status(200).json(listings[0]);
   } catch (err) {
     console.error('Error fetching listing:', err);
     res.status(500).json({ error: 'Server error', detail: err.message });
@@ -253,13 +378,80 @@ const getListingById = async (req, res) => {
 
 
 
+
 const getListingsFeed = async (req, res) => {
   try {
-    const listings = await HouseListing.find({ status: 'available' })
-      .populate('user_id', 'fullName profilePicture') // get poster's name and photo
-      .populate('rules', 'name description')     // rule details
-      .sort({ createdAt: -1 }) // newest first
-      .limit(50); // optional: limit number of listings
+    const listings = await HouseListing.aggregate([
+      { $match: { status: 'available' } },
+      { $sort: { createdAt: -1 } },
+      { $limit: 50 },
+
+      // Join user
+      {
+        $lookup: {
+          from: 'users',
+          localField: 'user_id',
+          foreignField: '_id',
+          as: 'user'
+        }
+      },
+      { $unwind: '$user' },
+
+      // Join profile of the user
+      {
+        $lookup: {
+          from: 'profiles',
+          let: { userId: '$user._id' },
+          pipeline: [
+            { $match: { $expr: { $eq: ['$user', '$$userId'] } } },
+            { $project: { phone_number: 1, social_media_links: 1 } }
+          ],
+          as: 'user.profile'
+        }
+      },
+      {
+        $unwind: {
+          path: '$user.profile',
+          preserveNullAndEmptyArrays: true
+        }
+      },
+
+      // Join rules
+      {
+        $lookup: {
+          from: 'rules',
+          localField: 'rules',
+          foreignField: '_id',
+          as: 'rules'
+        }
+      },
+
+      // Final projection
+      {
+        $project: {
+          _id: 1,
+          title: 1,
+          description: 1,
+          createdAt: 1,
+          status: 1,
+          user: {
+            fullName: '$user.fullName',
+            profilePicture: '$user.profilePicture',
+            profile: '$user.profile'
+          },
+          rules: {
+            $map: {
+              input: '$rules',
+              as: 'rule',
+              in: {
+                name: '$$rule.name',
+                description: '$$rule.description'
+              }
+            }
+          }
+        }
+      }
+    ]);
 
     res.status(200).json({ listings });
   } catch (err) {
@@ -273,37 +465,114 @@ const getListingsFeed = async (req, res) => {
 
 
 
+
 // Get filtered house listings (feed)
 exports.getHouseListingFeed = async (req, res) => {
   try {
     const { minPrice, maxPrice, city, radius, lat, lng } = req.query;
 
-    let filter = {};
+    let matchStage = {};
 
+    // Price Filter
     if (minPrice || maxPrice) {
-      filter['rent.amount'] = {};
-      if (minPrice) filter['rent.amount'].$gte = parseFloat(minPrice);
-      if (maxPrice) filter['rent.amount'].$lte = parseFloat(maxPrice);
+      matchStage['rent.amount'] = {};
+      if (minPrice) matchStage['rent.amount'].$gte = parseFloat(minPrice);
+      if (maxPrice) matchStage['rent.amount'].$lte = parseFloat(maxPrice);
     }
 
+    // City Filter (case-insensitive)
     if (city) {
-      filter['address.city'] = new RegExp(city, 'i');
+      matchStage['address.city'] = new RegExp(city, 'i');
     }
 
+    // Geo Filter
     if (lat && lng && radius) {
       const radiusInRadians = parseFloat(radius) / 6378.1;
-      filter['address.coordinates'] = {
+      matchStage['address.coordinates'] = {
         $geoWithin: {
           $centerSphere: [[parseFloat(lng), parseFloat(lat)], radiusInRadians]
         }
       };
     }
 
-    const listings = await HouseListing.find(filter)
-      .populate('provider', 'companyName')
-      .populate('user_id', 'first_name last_name')
-      .populate('house_rules')
-      .sort({ createdAt: -1 });
+    const listings = await HouseListing.aggregate([
+      { $match: matchStage },
+      { $sort: { createdAt: -1 } },
+
+      // Lookup provider (if needed)
+      {
+        $lookup: {
+          from: 'providers',
+          localField: 'provider',
+          foreignField: '_id',
+          as: 'provider'
+        }
+      },
+      { $unwind: { path: '$provider', preserveNullAndEmptyArrays: true } },
+
+      // Lookup user
+      {
+        $lookup: {
+          from: 'users',
+          localField: 'user_id',
+          foreignField: '_id',
+          as: 'user'
+        }
+      },
+      { $unwind: '$user' },
+
+      // Lookup user profile
+      {
+        $lookup: {
+          from: 'profiles',
+          let: { userId: '$user._id' },
+          pipeline: [
+            { $match: { $expr: { $eq: ['$user', '$$userId'] } } },
+            { $project: { phone_number: 1, social_media_links: 1 } }
+          ],
+          as: 'user.profile'
+        }
+      },
+      { $unwind: { path: '$user.profile', preserveNullAndEmptyArrays: true } },
+
+      // Lookup house rules
+      {
+        $lookup: {
+          from: 'houserules',
+          localField: 'house_rules',
+          foreignField: '_id',
+          as: 'house_rules'
+        }
+      },
+
+      // Final projection
+      {
+        $project: {
+          _id: 1,
+          title: 1,
+          description: 1,
+          createdAt: 1,
+          rent: 1,
+          address: 1,
+          provider: { companyName: '$provider.companyName' },
+          user: {
+            first_name: '$user.first_name',
+            last_name: '$user.last_name',
+            profile: '$user.profile'
+          },
+          house_rules: {
+            $map: {
+              input: '$house_rules',
+              as: 'rule',
+              in: {
+                name: '$$rule.name',
+                description: '$$rule.description'
+              }
+            }
+          }
+        }
+      }
+    ]);
 
     res.json(listings);
   } catch (error) {
@@ -311,6 +580,7 @@ exports.getHouseListingFeed = async (req, res) => {
     res.status(500).json({ error: 'Failed to fetch listings' });
   }
 };
+
 
 // Search listings
 const searchListings = async (req, res) => {
