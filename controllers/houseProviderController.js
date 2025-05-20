@@ -8,10 +8,10 @@ const registerProvider = async (req, res) => {
     const userId = req.user.id;
 
     // Check if user already a provider
-    const existingProvider = await HouseProvider.findOne({ user: userId });
-    if (existingProvider) {
-      return res.status(400).json({ error: 'User is already a provider' });
-    }
+    // const existingProvider = await HouseProvider.findOne({ user: userId });
+    // if (existingProvider) {
+    //   return res.status(400).json({ error: 'User is already a provider' });
+    // }
 
     const provider = await HouseProvider.create({
       user: userId,
