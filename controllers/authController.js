@@ -75,6 +75,12 @@ exports.login = async (req, res) => {
       name: user.name,
       email: user.email,
       role: user.role,
+      isVerified: user.isVerified,
+      isOnline: user.isOnline,
+      isblocked: user.isblocked,
+      issuspended: user.issuspended,
+      isdeleted: user.isdeleted,
+      isreported: user.isreported,
       token,
     });
   } catch (err) {
