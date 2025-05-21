@@ -546,6 +546,7 @@ exports.markFormCompleted = async (req, res) => {
     // 3. Add user to AI model
 
     const baseUrl = process.env.RECOMMENDATION_SERVICE_URL;
+    console.log('Base URL:', baseUrl);
     const aiResponse = await axios.post(
       `${baseUrl}/add_model_user`,
       aiData,

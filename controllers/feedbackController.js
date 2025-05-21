@@ -3,7 +3,8 @@ const UserFeedback = require('../models/UserFeedback');
 
 exports.submitFeedback = async (req, res) => {
   try {
-    const { userId, subject, message } = req.body;
+    userId=req.user.id;
+    const {  subject, message } = req.body;
 
     const feedback = new UserFeedback({ userId, subject, message });
     await feedback.save();
@@ -17,7 +18,8 @@ exports.submitFeedback = async (req, res) => {
 
 exports.reportUser = async (req, res) => {
   try {
-    const { reporterId, reportedUserId, reason, description } = req.body;
+    const reporterId = req.user.id;
+    const {  reportedUserId, reason, description } = req.body;
 
     const report = new UserReport({ reporterId, reportedUserId, reason, description });
     await report.save();

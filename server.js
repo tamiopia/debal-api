@@ -22,6 +22,7 @@ const houseProviderRoutes = require('./routes/houseProviderRoutes');
 const houseListingRoutes = require('./routes/houseListingRoutes');
 const verificationRoutes = require('./routes/verificationRoutes');
 const houseRuleRoutes = require('./routes/houseRuleRoutes');
+const feedbackRoutes = require('./routes/feedbackRoutes');
 
 // Initialize Express and HTTP server
 const app = express();
@@ -39,7 +40,15 @@ const io = socketio(server, {
   pingInterval: 10000, // How often to ping/pong
   pingTimeout: 5000, // Time before closing the connection
 });
+// In your server.js (add these lines after creating the HTTP server)
+const { initializeChat } = require('./controllers/chatController');
+initializeChat(io); // Pass the io instance to your chat controller
 
+// Make sure this comes AFTER your route definitions
+app.set('io', io); // Make io accessible in routes
+
+// In server.js
+// io.origins([process.env.CLIENT_URL || "http://localhost:3000"]);
 // Passport config
 require('./config/passport');
 
@@ -135,6 +144,8 @@ app.use('/api/list', houseListingRoutes);
 app.use('/api/providers', houseProviderRoutes);
 app.use('/api/verification', verificationRoutes);
 app.use('/api/house-rules', houseRuleRoutes);
+app.use('/api/feedbacks', feedbackRoutes);
+// Serve API documentation
 
 // Serve static files
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
