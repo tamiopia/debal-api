@@ -7,13 +7,25 @@ const verificationRequestSchema = new mongoose.Schema({
     required: true,
     unique: true // One verification request per user
   },
-  documentType: {
+  fullName: {
+    type: String,
+    required: true
+  },
+  idType: {
     type: String,
     enum: ['national-id', 'passport', 'driver-license'],
     required: true
   },
-  documentImage: {
-    type: String, // URL or file path
+  idNumber: {
+    type: String,
+    required: true
+  },
+  frontIdImage: {
+    type: String,
+    required: true
+  },
+  backIdImage: {
+    type: String,
     required: true
   },
   status: {

@@ -523,6 +523,8 @@ async function createConversation(req, res) {
 }
 
 // Send message with real-time delivery
+const socket = require('../sockets/chatSocket'); // Ensure this provides access to ioInstance
+
 async function sendMessage(req, res) {
   try {
     const { conversationId, content, messageType } = req.body;
@@ -581,10 +583,26 @@ async function sendMessage(req, res) {
       { lastMessage: message._id, updatedAt: new Date() }
     );
 
-    if (ioInstance) {
-      ioInstance.to(conversationId).emit('message:new', message);
+    // Broadcast to conversation room
+    if (socket.ioInstance) {
+      // Send to all users in the conversation room
+      socket.ioInstance.to(`conversation_${conversationId}`).emit('message:new', {
+        ...message.toObject()
+      });
+
+      // Send a notification to recipient user
+      const recipient = conversation.participants.find(p => p.toString() !== senderId);
+      if (recipient) {
+        socket.ioInstance.to(`user_${recipient}`).emit('message:notification', {
+          conversationId,
+          sender: req.user.username,
+          preview: content.substring(0, 30),
+          createdAt: new Date()
+        });
+      }
     }
-    
+
+    // Send response
     res.json({
       success: true,
       data: message
@@ -599,6 +617,7 @@ async function sendMessage(req, res) {
     });
   }
 }
+
 
 // Get conversation messages with pagination
 async function getMessages(req, res) {
