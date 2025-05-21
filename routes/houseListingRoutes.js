@@ -31,6 +31,6 @@ router.get('/filter/lists', protect, filterlistings);
 router.get('/search', searchListings);
 router.get('/all/get',protect,getalllistings);
 // In houseListingRoutes.js
-router.get('/feed', getListingsFeed); // Protected but no admin role required
+router.get('/get/feed', getListingsFeed); // Protected but no admin role required
 
 module.exports = router;
