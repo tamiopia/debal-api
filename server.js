@@ -147,6 +147,7 @@ app.use('/api/verification', verificationRoutes);
 app.use('/api/house-rules', houseRuleRoutes);
 app.use('/api/feedbacks', feedbackRoutes);
 app.use('/api/users', userRoutes);
+app.use('/api/dashboard', require('./routes/dashboardRoutes')); // Dashboard routes
 // Serve API documentation
 
 // Serve static files
