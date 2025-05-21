@@ -237,7 +237,7 @@ exports.getAllProfiles = async (req, res) => {
 exports.getProfileByUserId = async (req, res) => {
   try {
     const profile = await Profile.findOne({ user: req.params.userId })
-      .populate('user', ['name', 'email', 'avatar']);
+      .populate('user', ['name', 'email', 'avatar','rule','isOnline','isVerified','isblocked','issuspended','isdeleted','isreported']);
 
     if (!profile) {
       return res.status(404).json({ error: 'Profile not found' });
@@ -544,7 +544,7 @@ exports.markFormCompleted = async (req, res) => {
 
     // 3. Add user to AI model
     const aiResponse = await axios.post(
-      `https://5026-34-125-153-207.ngrok-free.app/add_model_user`,
+      `https://c669-34-125-153-207.ngrok-free.app/add_model_user`,
       aiData,
       { 
         headers: { 'Content-Type': 'application/json' },
@@ -658,7 +658,7 @@ exports.getRecommendations = async (req, res) => {
     const minMatches = req.user.recommendationSettings?.minMatches || 5;
 
     const recommendationsResponse = await axios.get(
-      `https://5026-34-125-153-207.ngrok-free.app/recommend/user_${req.user.id}`, // Example URL
+      `https://6f81-34-125-153-207.ngrok-free.app/recommend/user_${req.user.id}`, // Example URL
       {
         params: { n: minMatches },
         timeout: 30000,
