@@ -544,7 +544,7 @@ exports.markFormCompleted = async (req, res) => {
 
     // 3. Add user to AI model
     const aiResponse = await axios.post(
-      `https://d49a-35-243-230-231.ngrok-free.app/add_model_user`,
+      `https://5026-34-125-153-207.ngrok-free.app/add_model_user`,
       aiData,
       { 
         headers: { 'Content-Type': 'application/json' },
@@ -630,7 +630,7 @@ const getUserById = async (userId) => {
   try {
     // This should be a DB query or API request to fetch user info by user_id
     // For example, using Mongoose (MongoDB):
-    const user = await User.findOne({ user_id: userId });
+    const user = await User.findOne({_id: userId });
     
     if (!user) {
       throw new Error(`User with ID ${userId} not found`);
@@ -648,9 +648,8 @@ exports.getRecommendations = async (req, res) => {
   try {
     const minMatches = req.user.recommendationSettings?.minMatches || 5;
 
-    // Fetching recommendations from the AI API
     const recommendationsResponse = await axios.get(
-      `https://4e4c-34-125-153-207.ngrok-free.app/recommend/user_${req.user.id}`,
+      `https://5026-34-125-153-207.ngrok-free.app/recommend/user_${req.user.id}`, // Example URL
       {
         params: { n: minMatches },
         timeout: 30000,
@@ -659,46 +658,56 @@ exports.getRecommendations = async (req, res) => {
 
     const data = recommendationsResponse.data;
 
-    // Check if recommendations is an array
     if (!Array.isArray(data.recommendations)) {
       throw new Error("Invalid recommendation format received from AI service");
     }
 
-    // Fetch user data for each recommended user ID
     const recommendationsWithUserDetails = await Promise.all(
       data.recommendations.map(async (recommendation) => {
-        // Fetch full user data by user_id
+        let user;
+        if (recommendation.user_id.startsWith("user_")) {
+          // Fetch from your database
+          const userId = recommendation.user_id.slice("user_".length); // Extract user ID
+          user = await getUserById(userId); // Your database query function
+          console.log("Fetched user from DB:", user);
+        } else if (recommendation.user_id.startsWith("mock_")) {
+          console.log("Skipping Mock User", recommendation.user_id)
+          return null // Or handle mock user however you prefer
+        } else {
+          // Handle other user ID formats if needed (e.g. from other services)
+          user = await getUserById(recommendation.user_id);
+          console.log("Fetched user by Other ID:", user);
+        }
 
-        console.log("Recommendation User ID:", recommendation.user_id);
-        const user = await getUserById(recommendation.user_id);
 
-        // If user is found, add to the recommendation
+
         if (user) {
+
           return {
             ...recommendation,
             user_details: {
-              id: user.user_id,
+              id: user.user_id || user._id.toString(), // Or user.id, adapt as needed
               name: user.name,
-              email: user.email, // Add any additional user info you need
-              profile_picture: user.profile_picture, // Example
-              // Add any other fields that are necessary
+              email: user.email,
+              profile_picture: user.profile_picture,
+              // ... other user details
             },
           };
-        } else {
-          // If user data is not found, return the recommendation as is
-          return recommendation;
         }
+        return null; // Skip if user not found
       })
     );
 
-    // Return the updated recommendations with user details
+    const filteredRecommendations = recommendationsWithUserDetails.filter(rec => rec !== null);
+
+
     res.status(200).json({
-      recommendations: recommendationsWithUserDetails,
+      recommendations: filteredRecommendations, // Send filtered results
       cluster_info: data.cluster_info,
       model_metrics: data.model_metrics,
     });
   } catch (err) {
-    console.error("Error fetching recommendations:", err.message);
+    console.error("Error fetching recommendations:", err); // Log the full error
     res.status(500).json({ error: "Error fetching recommendations" });
   }
 };

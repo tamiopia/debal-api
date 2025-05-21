@@ -17,7 +17,12 @@ const userSchema = new mongoose.Schema({
   githubId: String,
   avatar: String,
   role: { type: String, enum: ['user', 'admin','superadmin','houseprovider'], default: 'user' },
-  isOnline: { type: Boolean, default: false }
+  isOnline: { type: Boolean, default: false },
+  isVerified: { type: Boolean, default: false },
+  isblocked: { type: Boolean, default: false },
+  issuspended: { type: Boolean, default: false },
+  isdeleted: { type: Boolean, default: false },
+  isreported: { type: Boolean, default: false },
 }, { timestamps: true });
 
 module.exports = mongoose.model('User', userSchema);
