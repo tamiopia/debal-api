@@ -3,6 +3,7 @@ const User = require('../models/User');
 const fs = require('fs');
 const path = require('path');
 const dotenv = require('dotenv');
+
 require('dotenv').config();
 // @desc    Get current user's profile
 // @route   GET /api/profiles/me
@@ -543,14 +544,21 @@ exports.markFormCompleted = async (req, res) => {
     console.log('Formatted AI Data:', aiData);
 
     // 3. Add user to AI model
+
+    console.log('AI Service URL:', process.env.RECOMMENDATION_SERVICE_URL);
     const aiResponse = await axios.post(
-      `https://c669-34-125-153-207.ngrok-free.app/add_model_user`,
+      `${process.env.RECOMMENDATION_SERVICE_URL}/add_model_user`,
       aiData,
       { 
         headers: { 'Content-Type': 'application/json' },
         timeout: 30000 // 10 second timeout
       }
     );
+
+    if (aiResponse.status !== 200) {
+      throw new Error("Failed to add user to AI model");
+    }
+    console.log('AI Response:', aiResponse.data);
 
     // 4. Get initial recommendations
     // const recommendationsResponse = await axios.get(
@@ -628,20 +636,104 @@ exports.markFormCompleted = async (req, res) => {
 // Example of a function to fetch user data by user_id from your database or external service.
 const getUserById = async (userId) => {
   try {
-    // This should be a DB query or API request to fetch user info by user_id
-    // For example, using Mongoose (MongoDB):
-    const user = await User.findOne({_id: userId });
-    
-    if (!user) {
-      throw new Error(`User with ID ${userId} not found`);
+    const profile = await Profile.findOne({ user: userId }).populate('user', [
+      'name',
+      'email',
+      'avatar',
+      'role',
+      'isOnline',
+      'isVerified',
+      'isblocked',
+      'issuspended',
+      'isdeleted',
+      'isreported'
+    ]);
+
+    if (!profile || !profile.user) {
+      throw new Error('User profile not found');
     }
 
-    return user;
+    let budgetRangeFormatted = profile.budget_range;
+    if (Array.isArray(profile.budget_range)) {
+      budgetRangeFormatted = {
+        min: profile.budget_range[0],
+        max: profile.budget_range[1]
+      };
+    }
+
+    return {
+      user: {
+        _id: profile.user._id,
+        name: profile.user.name,
+        email: profile.user.email,
+        role: profile.user.role,
+        isOnline: profile.user.isOnline,
+        isVerified: profile.user.isVerified,
+        isblocked: profile.user.isblocked,
+        issuspended: profile.user.issuspended,
+        isdeleted: profile.user.isdeleted,
+        isreported: profile.user.isreported
+      },
+      personalInfo: {
+        age: profile.age,
+        gender: profile.gender,
+        occupation: profile.occupation,
+        religion: profile.religion,
+        relationship_status: profile.relationship_status,
+        bio: profile.bio,
+        phone_number: profile.phone_number,
+        social_media_links: profile.social_media_links
+      },
+      lifestyle: {
+        personality_type: profile.personality_type,
+        daily_routine: profile.daily_routine,
+        sleep_pattern: profile.sleep_pattern
+      },
+      neighborhoodPrefs: {
+        preferred_location_type: profile.preferred_location_type,
+        commute_tolerance_minutes: profile.commute_tolerance_minutes
+      },
+      hobbies: profile.hobbies,
+      financial: {
+        income_level: profile.income_level,
+        budget_range: budgetRangeFormatted || {}
+      },
+      sharedLiving: {
+        cleanliness_level: profile.cleanliness_level,
+        chore_sharing_preference: profile.chore_sharing_preference,
+        noise_tolerance: profile.noise_tolerance,
+        guest_frequency: profile.guest_frequency,
+        party_habits: profile.party_habits
+      },
+      pets: {
+        has_pets: profile.has_pets,
+        pet_tolerance: profile.pet_tolerance
+      },
+      food: {
+        cooking_frequency: profile.cooking_frequency,
+        diet_type: profile.diet_type,
+        shared_groceries: profile.shared_groceries
+      },
+      work: {
+        work_hours: profile.work_hours,
+        works_from_home: profile.works_from_home,
+        chronotype: profile.chronotype
+      },
+      privacy: {
+        privacy_level: profile.privacy_level,
+        shared_space_usage: profile.shared_space_usage
+      },
+      photos: profile.photos,
+      form_completed: profile.form_completed,
+      recommendationSettings: profile.recommendationSettings
+    };
+
   } catch (err) {
-    console.error("Error fetching user:", err.message);
+    console.error('Error in getUserById:', err.message);
     return null;
   }
 };
+
 async function getAllUsers() {
   try {
       const users = await User.find({ role:"user" }).populate('profile');
@@ -656,12 +748,16 @@ async function getAllUsers() {
 exports.getRecommendations = async (req, res) => {
   try {
     const minMatches = req.user.recommendationSettings?.minMatches || 5;
+     const baseUrl = process.env.AI_SERVICE_URL;
 
+    if (!baseUrl) {
+      throw new Error('AI_SERVICE_URL environment variable is not set');
+    }
     const recommendationsResponse = await axios.get(
-      `https://6f81-34-125-153-207.ngrok-free.app/recommend/user_${req.user.id}`, // Example URL
+      `${process.env.RECOMMENDATION_SERVICE_URL}/recommend/user_${req.user.id}`, // URL from environment variable
       {
-        params: { n: minMatches },
-        timeout: 30000,
+      params: { n: minMatches },
+      timeout: 30000,
       }
     );
 
@@ -694,13 +790,7 @@ exports.getRecommendations = async (req, res) => {
 
           return {
             ...recommendation,
-            user_details: {
-              id: user.user_id || user._id.toString(), // Or user.id, adapt as needed
-              name: user.name,
-              email: user.email,
-              profile_picture: user.profile_picture,
-              // ... other user details
-            },
+            user,
           };
         }
         return null; // Skip if user not found
@@ -712,8 +802,8 @@ exports.getRecommendations = async (req, res) => {
 
     res.status(200).json({
       recommendations: filteredRecommendations, // Send filtered results
-      cluster_info: data.cluster_info,
-      model_metrics: data.model_metrics,
+      // cluster_info: data.cluster_info,
+      // model_metrics: data.model_metrics,
     });
   } catch (err) {
     console.error("Error fetching recommendations:", err); // Log the full error
