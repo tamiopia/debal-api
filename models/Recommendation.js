@@ -2,6 +2,7 @@
 const mongoose = require('mongoose');
 const { Schema } = mongoose;
 
+
 const compatibilityFactorsSchema = new Schema({
   lifestyle: { type: Number, min: 0, max: 100 },
   habits: { type: Number, min: 0, max: 100 },

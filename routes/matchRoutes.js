@@ -4,10 +4,12 @@ const { protect } = require('../middlewares/authMiddleware');
 const { getMatches } = require('../controllers/matchController');
 const {
     
-    getRecommendations,
+    
     updateRecommendationSettings
   
   } = require('../controllers/profileController');
+
+  const {getRecommendations}=require('../controllers/recomandationController');
 
 router.get('/', protect, getMatches);
 router.get('/recommendations', protect, getRecommendations);

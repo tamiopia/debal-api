@@ -642,6 +642,15 @@ const getUserById = async (userId) => {
     return null;
   }
 };
+async function getAllUsers() {
+  try {
+      const users = await User.find({ role:"user" }).populate('profile');
+      return users;
+  } catch (error) {
+      console.error("Error fetching all users:", error);
+      return []; // Return an empty array to avoid errors in later processing.
+  }
+}
 // Assuming a function that fetches user data by ID from your DB/API
 
 exports.getRecommendations = async (req, res) => {

@@ -148,7 +148,7 @@ const updateListing = async (req, res) => {
       ...(amenities && { amenities: parsedAmenities }),
       ...(availableFrom && { availableFrom }),
       ...(rules && { rules: parsedRules }),
-      ...(house_rules && { parsedRules }),
+      ...(house_rules && { house_rules }),
       ...(photos && { photos: parsedPhotos }),
     };
 
