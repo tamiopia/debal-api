@@ -650,7 +650,7 @@ exports.getRecommendations = async (req, res) => {
 
     // Fetching recommendations from the AI API
     const recommendationsResponse = await axios.get(
-      `https://0087-34-75-211-144.ngrok-free.app/recommend/user_${req.user.id}`,
+      `https://4e4c-34-125-153-207.ngrok-free.app/recommend/user_${req.user.id}`,
       {
         params: { n: minMatches },
         timeout: 30000,

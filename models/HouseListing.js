@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const HouseRule = require('./houseRules');
 
 const houseListingSchema = new mongoose.Schema({
   provider: {
@@ -11,12 +12,11 @@ const houseListingSchema = new mongoose.Schema({
     ref: 'User',
     required: true
   },
-  house_rules: {
+  house_rules: [{
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'HouseRules',
+    ref: 'HouseRule',
     required: false
-  },
-
+  }],
 
   title: {
     type: String,

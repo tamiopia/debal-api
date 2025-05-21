@@ -18,9 +18,12 @@ const createListing = async (req, res) => {
       amenities,
       availableFrom,
       rules,
+      status,
       house_rules,
       photos // this should be a JSON stringified array from the frontend
     } = req.body;
+
+  
 
     const parseIfString = (val) => {
       if (typeof val === 'string') {
@@ -36,14 +39,15 @@ const createListing = async (req, res) => {
 
     const parsedAddress = parseIfString(address) || {};
     const parsedRent = parseIfString(rent) || {};
-    const parsedRules = parseIfString(rules) || {};
+    const parsedRules = parseIfString(house_rules) || {};
     const parsedAmenities = parseIfString(amenities) || [];
     const parsedPhotos = parseIfString(photos) || [];
 
+      console.log(parsedRules)
     // Validate house_rules ObjectId
-    if (!mongoose.Types.ObjectId.isValid(house_rules)) {
-      return res.status(400).json({ error: 'Invalid house_rules ID' });
-    }
+    // if (!mongoose.Types.ObjectId.isValid(rules)) {
+    //   return res.status(400).json({ error: 'Invalid house_rules ID' });
+    // }
 
     const imageFilenames = req.files
       ? req.files.map(file => `uploads/houselistings/${file.filename}`)
@@ -51,7 +55,7 @@ const createListing = async (req, res) => {
 
     const newListing = new HouseListing({
       user_id: req.user._id,
-      provider: req.user.role === 'provider' ? req.user._id : null,
+      provider: req.user.role === 'houseprovider' ? req.user._id : null,
       house_rules: house_rules,
       title,
       description,
@@ -64,8 +68,8 @@ const createListing = async (req, res) => {
       bathrooms,
       amenities: parsedAmenities,
       availableFrom,
-      rules: parsedRules,
-      status: 'available',
+      house_rules: parsedRules,
+      status: status,
       images: imageFilenames,
       photos: parsedPhotos
     });
@@ -115,7 +119,7 @@ const updateListing = async (req, res) => {
 
     const parsedAddress = parseIfString(address) || {};
     const parsedRent = parseIfString(rent) || {};
-    const parsedRules = parseIfString(rules) || {};
+    const parsedRules = parseIfString(house_rules) || {};
     const parsedAmenities = parseIfString(amenities) || [];
     const parsedPhotos = parseIfString(photos) || [];
 
@@ -144,7 +148,7 @@ const updateListing = async (req, res) => {
       ...(amenities && { amenities: parsedAmenities }),
       ...(availableFrom && { availableFrom }),
       ...(rules && { rules: parsedRules }),
-      ...(house_rules && { house_rules }),
+      ...(house_rules && { parsedRules }),
       ...(photos && { photos: parsedPhotos }),
     };
 
@@ -185,7 +189,7 @@ const getMyListings = async (req, res) => {
     console.log('User ID on listing:', userId);
 
     const listings = await HouseListing.find({ user_id: userId })
-      .populate('rules')
+      .populate('house_rules', 'name description') // Correct field name here
       .populate('user_id', 'name') // Correct field name here
       .sort({ createdAt: -1 });
 
@@ -214,6 +218,16 @@ const getalllistings = async (req, res) => {
         }
       },
       { $unwind: '$user' },
+
+      //join with house rules
+      {
+        $lookup: {
+          from: 'houserules',
+          localField: 'house_rules',
+          foreignField: '_id',
+          as: 'house_rules'
+        }
+      },
 
       // Join with Profile (reverse lookup via user._id = profile.user)
       {
@@ -263,7 +277,7 @@ const getalllistings = async (req, res) => {
           amenities: 1,
           images: 1,
           availableFrom: 1,
-          rules: 1, // Rules details
+          house_rules: 1, // Rules details
           status: 1, // Listing status
           photos: 1, // Photos array
           createdAt: 1,
@@ -330,6 +344,15 @@ const getListingById = async (req, res) => {
         }
       },
 
+      {
+        $lookup: {
+          from: 'houserules',
+          localField: 'house_rules',
+          foreignField: '_id',
+          as: 'house_rules'
+        }
+      },
+
       // Join with provider
       {
         $lookup: {
@@ -369,7 +392,7 @@ const getListingById = async (req, res) => {
           amenities: 1,
           images: 1,
           availableFrom: 1,
-          rules: 1, // Rules details
+          house_rules: 1, // Rules details
           status: 1, // Listing status
           photos: 1, // Photos array
           createdAt: 1,
