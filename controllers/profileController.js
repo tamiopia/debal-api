@@ -545,9 +545,9 @@ exports.markFormCompleted = async (req, res) => {
 
     // 3. Add user to AI model
 
-    console.log('AI Service URL:', process.env.RECOMMENDATION_SERVICE_URL);
+    const baseUrl = process.env.RECOMMENDATION_SERVICE_URL;
     const aiResponse = await axios.post(
-      `${process.env.RECOMMENDATION_SERVICE_URL}/add_model_user`,
+      `${baseUrl}/add_model_user`,
       aiData,
       { 
         headers: { 'Content-Type': 'application/json' },
@@ -748,13 +748,13 @@ async function getAllUsers() {
 exports.getRecommendations = async (req, res) => {
   try {
     const minMatches = req.user.recommendationSettings?.minMatches || 5;
-     const baseUrl = process.env.AI_SERVICE_URL;
+     const baseUrl = process.env.RECOMMENDATION_SERVICE_URL;
 
     if (!baseUrl) {
       throw new Error('AI_SERVICE_URL environment variable is not set');
     }
     const recommendationsResponse = await axios.get(
-      `${process.env.RECOMMENDATION_SERVICE_URL}/recommend/user_${req.user.id}`, // URL from environment variable
+      `${baseUrl}/recommend/user_${req.user.id}`, // URL from environment variable
       {
       params: { n: minMatches },
       timeout: 30000,

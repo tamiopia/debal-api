@@ -15,6 +15,12 @@ router.patch('/:id/update',protect ,superadmin, adminController.updateAdmin);
 router.delete('/:id/delete',protect ,superadmin, adminController.deleteAdmin);
 router.patch('/:id/promote',protect ,superadmin, adminController.promoteToAdmin);
 router.patch('/:id/uassign',protect ,superadmin, adminController.unassignAdmin);
+router.get('/getreports',protect ,superadmin, adminController.getAllReports);
+router.get('/getreports/:id',protect ,superadmin, adminController.getReportById);
+router.post('/handlereport/:id',protect ,superadmin, adminController.handleReport);
+router.get('/allfeedback',protect ,superadmin, adminController.getAllFeedback);
+router.get('/allfeedback/:id',protect ,superadmin, adminController.getFeedbackById);
+
 
 
 
