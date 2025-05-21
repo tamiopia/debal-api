@@ -23,6 +23,7 @@ const houseListingRoutes = require('./routes/houseListingRoutes');
 const verificationRoutes = require('./routes/verificationRoutes');
 const houseRuleRoutes = require('./routes/houseRuleRoutes');
 const feedbackRoutes = require('./routes/feedbackRoutes');
+const userRoutes = require('./routes/userRoutes'); // Import user routes
 
 // Initialize Express and HTTP server
 const app = express();
@@ -145,6 +146,7 @@ app.use('/api/providers', houseProviderRoutes);
 app.use('/api/verification', verificationRoutes);
 app.use('/api/house-rules', houseRuleRoutes);
 app.use('/api/feedbacks', feedbackRoutes);
+app.use('/api/users', userRoutes);
 // Serve API documentation
 
 // Serve static files
