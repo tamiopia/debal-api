@@ -124,9 +124,9 @@ const updateListing = async (req, res) => {
     const parsedPhotos = parseIfString(photos) || [];
 
     // Validate house_rules ObjectId
-    if (house_rules && !mongoose.Types.ObjectId.isValid(house_rules)) {
-      return res.status(400).json({ error: 'Invalid house_rules ID' });
-    }
+    // if (house_rules && !mongoose.Types.ObjectId.isValid(house_rules)) {
+    //   return res.status(400).json({ error: 'Invalid house_rules ID' });
+    // }
 
     const imageFilenames = req.files
       ? req.files.map(file => `uploads/houselistings/${file.filename}`)
