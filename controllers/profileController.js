@@ -238,7 +238,7 @@ exports.getAllProfiles = async (req, res) => {
 exports.getProfileByUserId = async (req, res) => {
   try {
     const profile = await Profile.findOne({ user: req.params.userId })
-      .populate('user', ['name', 'email', 'avatar','rule','isOnline','isVerified','isblocked','issuspended','isdeleted','isreported']);
+      .populate('user', ['name', 'email', 'avatar','role','isOnline','isVerified','isblocked','issuspended','isdeleted','isreported']);
 
     if (!profile) {
       return res.status(404).json({ error: 'Profile not found' });
