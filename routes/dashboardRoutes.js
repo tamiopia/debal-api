@@ -58,7 +58,39 @@ router.get('/user-growth', async (req, res) => {
   }
 })
 
-module.exports = router
+const HouseListing = require('../models/HouseListing');
+const Message = require('../models/Message');
+
+
+router.get('/stats/overview', async (req, res) => {
+  try {
+    const [totalUsers, activeListings, messages, aiMatches] = await Promise.all([
+      User.countDocuments(),
+      HouseListing.countDocuments(), // Adjust based on your schema
+      Message.countDocuments(),
+      
+    ]);
+
+    res.json({
+      totalUsers,
+      activeListings,
+      messages,
+      aiMatches
+    });
+
+  } catch (error) {
+    console.error('Stats error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch stats'
+    });
+  }
+});
+
+
 
 
 module.exports = router
+
+
+
