@@ -68,3 +68,17 @@ exports.updateVerificationStatus = async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 };
+exports.getVerificationRequestsbyid = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const request = await VerificationRequest.findById(id).populate('user');
+
+    if (!request) {
+      return res.status(404).json({ error: 'Request not found' });
+    }
+
+    res.json(request);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};

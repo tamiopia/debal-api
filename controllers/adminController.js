@@ -89,6 +89,12 @@ const getAdminById = async (req, res) => {
 const createAdmin = async (req, res) => {
     try {
         const adminData = req.body;
+        req.body.role = 'admin'; // Set the role to admin
+        // Logic to create a new admin
+        if(req.body.role !== 'admin') {
+            return res.status(400).json({ success: false, message: "Role must be admin" });
+        }
+
         const newAdmin = new User(adminData);
 
         await newAdmin.save();
@@ -114,6 +120,21 @@ const updateAdmin = async (req, res) => {
         res.status(500).json({ success: false, message: error.message });
     }
 };
+  
+const suspendUser = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const user = await User.findById(id);
+        if (!user) {
+            return res.status(404).json({ success: false, message: "User not found" });
+        }
+        user.issuspended = true; // Assuming you have a field to mark suspension
+        await user.save();
+        res.status(200).json({ success: true, message: "User suspended successfully", data: user });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+}
 
 const deleteAdmin = async (req, res) => {
     try {
@@ -142,6 +163,53 @@ const promoteToAdmin = async (req, res) => {
         res.status(500).json({ success: false, message: error.message });
     }
 };
+
+const blockadmin = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const admin = await User.findById(id);
+        if (!admin || admin.role !== 'admin') {
+            return res.status(404).json({ success: false, message: "Admin not found" });
+        }
+        admin.isblocked = true; // Assuming you have a field to mark blocking
+        await admin.save();
+        res.status(200).json({ success: true, message: "Admin blocked successfully", data: admin });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+}
+
+// code to unbolck admin
+const unblockadmin = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const admin = await User.findById(id);
+        if (!admin || admin.role !== 'admin') {
+            return res.status(404).json({ success: false, message: "Admin not found" });
+        }
+        admin.isblocked = false; // Assuming you have a field to mark unblocking
+        await admin.save();
+        res.status(200).json({ success: true, message: "Admin unblocked successfully", data: admin });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+}
+
+// code to unsuspend admin
+const unsuspendAdmin = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const admin = await User.findById(id);
+        if (!admin || admin.role !== 'admin') {
+            return res.status(404).json({ success: false, message: "Admin not found" });
+        }
+        admin.issuspended = false; // Assuming you have a field to mark unsuspension
+        await admin.save();
+        res.status(200).json({ success: true, message: "Admin unsuspended successfully", data: admin });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+}
 
 const unassignAdmin = async (req, res) => {
     try {
@@ -288,7 +356,11 @@ module.exports = {
     getAllReports,
     handleReport,
     getReportById,
-    getFeedbackById
+    getFeedbackById,
+    suspendUser,
+    blockadmin,
+    unblockadmin,
+    unsuspendAdmin
     
     
 

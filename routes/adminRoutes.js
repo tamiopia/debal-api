@@ -9,10 +9,17 @@ router.get('/allusers',adminController.getAllUsers);
 router.get('/user/:id',adminController.getUserById);
 router.get('/allproviders',protect,admin,adminController.getAllProviders);
 router.get('/provider/:id',protect,admin,adminController.getProviderById);
-router.get('/alladmins',protect ,superadmin, adminController.getAdmins);
+router.get('/alladmins',protect ,admin, adminController.getAdmins);
 router.post('/create',protect ,superadmin, adminController.createAdmin);
 router.patch('/:id/update',protect ,superadmin, adminController.updateAdmin);
 router.delete('/:id/delete',protect ,superadmin, adminController.deleteAdmin);
+router.patch('/:id/suspend',protect ,superadmin, adminController.suspendUser);
+router.patch('/:id/unsuspend',protect ,superadmin, adminController.unsuspendAdmin);
+//route to block user
+router.patch('/:id/block',protect ,superadmin, adminController.blockadmin);
+//route to unblock user
+router.patch('/:id/unblock',protect ,superadmin, adminController.unblockadmin);
+
 router.patch('/:id/promote',protect ,superadmin, adminController.promoteToAdmin);
 router.patch('/:id/uassign',protect ,superadmin, adminController.unassignAdmin);
 router.get('/getreports',protect ,admin, adminController.getAllReports);

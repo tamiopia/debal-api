@@ -5,7 +5,8 @@ const { protect,admin} = require("../middlewares/authMiddleware");
 const {
   submitVerification,
   getVerificationRequests,
-  updateVerificationStatus
+  updateVerificationStatus,
+  getVerificationRequestsbyid
 } = require('../controllers/verificationController');
 
 // Upload config
@@ -26,6 +27,7 @@ router.post('/', protect, upload.fields([
 
 // Admin routes
 router.get('/admin/requests', protect,admin, getVerificationRequests);
-router.patch('/admin/:id/status', protect,admin, updateVerificationStatus);
+router.get('/admin/requests/:id', protect,admin, getVerificationRequestsbyid);
+router.patch('/admin/requests/:id', protect,admin, updateVerificationStatus);
 
 module.exports = router;
