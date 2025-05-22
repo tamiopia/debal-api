@@ -6,7 +6,8 @@ const {
   createConversation,
   sendMessage,
   markAsRead,
-  getConversations
+  getConversations,
+  markAsReads
 } = require('../controllers/chatController');
 
 // Rate limiting middleware for message-related routes
@@ -23,6 +24,6 @@ router.route('/:conversationId/messages')
   .post(protect, messageLimiter, sendMessage); // Send new message
 
 // Message status routes
-router.post('/messages/read', protect, markAsRead); // Mark messages as read
+router.post('/messages/read', protect, markAsReads); // Mark messages as read
 
 module.exports = router;

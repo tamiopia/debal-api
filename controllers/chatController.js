@@ -648,31 +648,40 @@ async function getMessages(req, res) {
 }
 
 // Mark messages as read
+const mongoose = require('mongoose');
+
 async function markAsRead(req, res) {
   try {
     const { messageIds, conversationId } = req.body;
     const userId = req.user.id;
 
-    await Message.updateMany(
-      { 
-        _id: { $in: messageIds },
-        conversation: conversationId,
-        sender: { $ne: userId } // Can't mark own messages as read
+    const readAt = new Date();
+    const objectIds = messageIds.map(id => new mongoose.Types.ObjectId(id));
+
+    // Update messages that the current user has received (i.e. not sent by them)
+    const updateResult = await Message.updateMany(
+      {
+        _id: { $in: objectIds },
+        conversation: new mongoose.Types.ObjectId(conversationId),
+        sender: { $ne: userId } // Only mark as read if the user is NOT the sender
       },
-      { $set: { read: true, readAt: new Date() } }
+      { $set: { read: true, readAt } }
     );
+
+    console.log('Messages marked as read:', updateResult.modifiedCount);
 
     if (ioInstance) {
       ioInstance.to(conversationId).emit('messages:read', {
         messageIds,
         readBy: userId,
-        readAt: new Date()
+        readAt
       });
     }
 
     res.json({ success: true });
 
   } catch (error) {
+    console.error('Mark-as-read error:', error);
     res.status(500).json({
       success: false,
       error: "Failed to mark messages as read",
@@ -681,12 +690,97 @@ async function markAsRead(req, res) {
   }
 }
 
+const markAsReads = async (req, res) => {
+  try {
+    const { messageIds,senderId,conversationId } = req.body;
+    const userId = req.user.id;
+
+    // Validate input
+    if (!Array.isArray(messageIds) || messageIds.length === 0) {
+      return res.status(400).json({ error: 'Invalid message IDs provided' });
+    }
+
+    const readAt = new Date();
+
+    // 1. Find all messages that:
+    //    - Are in the provided IDs
+    //    - Were sent by others (not the current user)
+    //    - Are unread
+    const messages = await Message.find({
+      _id: { $in: messageIds },
+      
+    }).populate({
+      path: 'conversation',
+      select: 'participants'
+    });
+
+    if (!messages || messages.length === 0) {
+      return res.status(200).json({ 
+        success: true,
+        message: 'No unread messages found to mark as read',
+        updatedMessages: []
+      });
+    }
+
+    // 2. Filter to only messages in conversations the user is part of
+    const validMessages = messages.filter(msg => 
+      msg.conversation?.participants.some(p => p.equals(userId))
+    );
+
+    if (validMessages.length === 0) {
+      return res.status(403).json({ 
+        error: 'You are not a participant in these conversations' 
+      });
+    }
+
+    const validMessageIds = validMessages.map(m => m._id);
+
+    // 3. Update the messages
+    await Message.updateMany(
+      { _id: { $in: validMessageIds } },
+      { $set: { read: true, readAt } }
+    );
+
+    // 4. Get the updated messages with full details
+    const updatedMessages = await Message.find({
+      _id: { $in: validMessageIds }
+    }).populate('sender', 'name avatar');
+
+    // 5. Emit socket events
+    const io = req.app.get('io');
+    validMessages.forEach(msg => {
+      io.to(msg.conversation._id.toString()).emit('messageRead', {
+        messageId: msg._id,
+        readAt,
+        readBy: userId
+      });
+    });
+
+    res.status(200).json({ 
+      success: true,
+      message: 'Messages marked as read successfully',
+      updatedMessages
+    });
+
+  } catch (err) {
+    console.error('markAsRead error:', err);
+    res.status(500).json({ 
+      error: 'Failed to mark messages as read',
+      details: err.message 
+    });
+  }
+};
+
+
+
 // Get user conversations with preview
 async function getConversations(req, res) {
   try {
     const conversations = await Conversation.aggregate([
       { $match: { participants: req.user._id } },
       { $sort: { updatedAt: -1 } },
+      
+      // Lookup to get the last message
       {
         $lookup: {
           from: 'messages',
@@ -700,6 +794,8 @@ async function getConversations(req, res) {
         }
       },
       { $unwind: { path: '$lastMessage', preserveNullAndEmptyArrays: true } },
+
+      // Lookup to get participants
       {
         $lookup: {
           from: 'users',
@@ -708,9 +804,30 @@ async function getConversations(req, res) {
           as: 'participants',
           pipeline: [{ $project: { name: 1, avatar: 1 } }]
         }
+      },
+
+      // Lookup to count unread messages
+      {
+        $lookup: {
+          from: 'messages',
+          let: { convId: '$_id' },
+          pipeline: [
+            { $match: { $expr: { $eq: ['$conversation', '$$convId'] } } },
+            { $match: { read: false, sender: { $ne: req.user._id } } }, // Unread messages from other participants
+          ],
+          as: 'unreadMessages'
+        }
+      },
+
+      // Add unreadCount to the conversation
+      {
+        $addFields: {
+          unreadCount: { $size: '$unreadMessages' }
+        }
       }
     ]);
 
+    // Prepare the final response
     res.json({
       success: true,
       data: conversations.map(conv => ({
@@ -728,6 +845,7 @@ async function getConversations(req, res) {
   }
 }
 
+
 module.exports = {
   initializeChat,
   saveMessage,
@@ -735,5 +853,6 @@ module.exports = {
   sendMessage,
   getMessages,
   markAsRead,
-  getConversations
+  getConversations,
+  markAsReads
 };
