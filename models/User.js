@@ -23,6 +23,10 @@ const userSchema = new mongoose.Schema({
   issuspended: { type: Boolean, default: false },
   isdeleted: { type: Boolean, default: false },
   isreported: { type: Boolean, default: false },
+  isrejected: {
+    type: Boolean,
+    default: false
+  }
 }, { timestamps: true });
 
 module.exports = mongoose.model('User', userSchema);

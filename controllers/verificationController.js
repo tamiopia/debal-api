@@ -58,26 +58,34 @@ exports.updateVerificationStatus = async (req, res) => {
       reviewedAt: new Date(),
       reviewer: req.user.id
     }, { new: true });
-        
+
     if (!request) {
       return res.status(404).json({ error: 'Request not found' });
     }
-    //update is verified on user model
-    const User = require('../models/User');
 
-    user = await User.findById(request.user);
+    const User = require('../models/User');
+    const user = await User.findById(request.user);
+
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
-    user.isVerified = status === 'verified';
-    await user.save();
 
+    if (status === 'verified') {
+      user.isVerified = true;
+      user.isRejected = false; // Optional: clear rejection
+    } else if (status === 'rejected') {
+      user.isVerified = false;
+      user.isRejected = true;
+    }
+
+    await user.save();
 
     res.json({ message: `User ${status}.`, request });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 };
+
 exports.getVerificationRequestsbyid = async (req, res) => {
   try {
     const { id } = req.params;

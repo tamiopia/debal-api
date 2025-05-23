@@ -121,7 +121,7 @@ const updateAdmin = async (req, res) => {
     }
 };
   
-const suspendUser = async (req, res) => {
+const suspendadmin = async (req, res) => {
     try {
         const { id } = req.params;
         const user = await User.findById(id);
@@ -178,6 +178,36 @@ const blockadmin = async (req, res) => {
         res.status(500).json({ success: false, message: error.message });
     }
 }
+//cose to block user
+const blockUser = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const user = await User.findById(id);
+        if (!user) {
+            return res.status(404).json({ success: false, message: "User not found" });
+        }
+        user.isblocked = true; // Assuming you have a field to mark blocking
+        await user.save();
+        res.status(200).json({ success: true, message: "User blocked successfully", data: user });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+}
+// code to unblock user
+const unblockUser = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const user = await User.findById(id);
+        if (!user) {
+            return res.status(404).json({ success: false, message: "User not found" });
+        }
+        user.isblocked = false; // Assuming you have a field to mark unblocking
+        await user.save();
+        res.status(200).json({ success: true, message: "User unblocked successfully", data: user });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+}
 
 // code to unbolck admin
 const unblockadmin = async (req, res) => {
@@ -194,7 +224,36 @@ const unblockadmin = async (req, res) => {
         res.status(500).json({ success: false, message: error.message });
     }
 }
+// code to suspend user
+const suspendUser = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const user = await User.findById(id);
+        if (!user) {
+            return res.status(404).json({ success: false, message: "User not found" });
+        }
+        user.issuspended = true; // Assuming you have a field to mark suspension
+        await user.save();
+        res.status(200).json({ success: true, message: "User suspended successfully", data: user });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+}
 
+const unsuspendUser = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const user = await User.findById(id);
+        if (!user) {
+            return res.status(404).json({ success: false, message: "User not found" });
+        }
+        user.issuspended = false; // Assuming you have a field to mark unsuspension
+        await user.save();
+        res.status(200).json({ success: true, message: "User unsuspended successfully", data: user });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+}
 // code to unsuspend admin
 const unsuspendAdmin = async (req, res) => {
     try {
@@ -300,25 +359,37 @@ const handleReport = async (req, res) => {
   }
 };
 const getReportById = async (req, res) => {
-    try {
-      const { reportId } = req.params;
-  
-      // Find the report by its ID
-      const report = await UserReport.findById(reportId).populate('reportedUserId'); // Assuming `reportedUserId` is a reference to the User model
-      if (!report) {
-        return res.status(404).json({ error: 'Report not found' });
-      }
-  
-      // If the report is found, return the report and associated user details
-      res.status(200).json({
-        report,
-        user: report.reportedUserId // Reported user's details
-      });
-    } catch (err) {
-      console.error('Error fetching report:', err);
-      res.status(500).json({ error: 'Error fetching report' });
+  try {
+    const { reportId } = req.params;
+
+    const report = await UserReport.findById(reportId)
+      .populate([
+        {
+          path: 'reportedUserId',
+          select: '-password'
+        },
+        {
+          path: 'reporterId',
+          select: '-password'
+        }
+      ]);
+
+    if (!report) {
+      return res.status(404).json({ error: 'Report not found' });
     }
-  };
+
+    res.status(200).json({
+      report
+    });
+
+  } catch (err) {
+    console.error('Error fetching report:', err);
+    res.status(500).json({ error: 'Error fetching report' });
+  }
+};
+
+
+
   const getFeedbackById = async (req, res) => {
     try {
       const { feedbackId } = req.params;
@@ -360,7 +431,12 @@ module.exports = {
     suspendUser,
     blockadmin,
     unblockadmin,
-    unsuspendAdmin
+    unsuspendAdmin,
+    suspendadmin,
+    blockUser,
+    unblockUser,
+    suspendUser,
+    unsuspendUser
     
     
 
