@@ -35,7 +35,7 @@ const upload = require('../middlewares/cloudupload');
 router.get('/me', protect, getMyProfile);
 router.post('/photo', protect,upload.array('photos', 5), createOrUpdateProfile);
 router.patch('/profile/photo/set-profile', protect, setProfilePhoto);
-router.delete('/profile/photo/:filename', protect, deletePhoto);
+router.delete('/profile/photo', protect, deletePhoto);
 
 
 

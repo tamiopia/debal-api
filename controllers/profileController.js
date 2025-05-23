@@ -211,7 +211,7 @@ const cloudinary = require('../utils/cloudinary');
 exports.deletePhoto = async (req, res) => {
   try {
     const userId = req.user.id;
-    const filename = req.params.filename;
+    const filename = req.body.filename;
 
     const profile = await Profile.findOne({ user: userId });
     if (!profile) {
