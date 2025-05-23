@@ -53,17 +53,23 @@ exports.updateVerificationStatus = async (req, res) => {
       return res.status(400).json({ error: 'Invalid status' });
     }
 
-    const request = await VerificationRequest.findByIdAndUpdate(id, {
-      status,
-      reviewedAt: new Date(),
-      reviewer: req.user.id
-    }, { new: true });
+    const request = await VerificationRequest.findByIdAndUpdate(
+      id,
+      {
+        status,
+        reviewedAt: new Date(),
+        reviewer: req.user.id
+      },
+      { new: true }
+    );
 
     if (!request) {
       return res.status(404).json({ error: 'Request not found' });
     }
 
     const User = require('../models/User');
+    const Profile = require('../models/Profile');
+
     const user = await User.findById(request.user);
 
     if (!user) {
@@ -72,10 +78,24 @@ exports.updateVerificationStatus = async (req, res) => {
 
     if (status === 'verified') {
       user.isVerified = true;
-      user.isRejected = false; // Optional: clear rejection
+      user.isRejected = false;
+
+      // ✅ Update profile.verification_status to "verified"
+      const profile = await Profile.findOne({ user: user._id });
+      if (profile) {
+        profile.verification_status = 'verified';
+        await profile.save();
+      }
     } else if (status === 'rejected') {
       user.isVerified = false;
       user.isRejected = true;
+
+      // Optionally update profile as well
+      const profile = await Profile.findOne({ user: user._id });
+      if (profile) {
+        profile.verification_status = 'rejected';
+        await profile.save();
+      }
     }
 
     await user.save();

@@ -204,6 +204,11 @@ const profileSchema = new mongoose.Schema({
     type: String,
     maxlength: 500
   },
+  verfication_status: {
+    type: String,
+    enum: ['pending', 'verified', 'rejected'],
+    default: 'pending'
+  },
   photos: [{
     url: String,
     filename: String,

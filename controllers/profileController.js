@@ -36,7 +36,9 @@ exports.getMyProfile = async (req, res) => {
         relationship_status: profile.relationship_status,
         bio: profile.bio,
         phone_number: profile.phone_number,
-        social_media_links: profile.social_media_links
+        social_media_links: profile.social_media_links,
+
+        verification_status: profile.verfication_status
       },
       lifestyle: {
         personality_type: profile.personality_type,
