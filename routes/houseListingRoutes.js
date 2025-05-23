@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const upload = require('../middlewares/upload');
+const upload = require('../middlewares/cloudupload');
 const { protect, providerAuth } = require('../middlewares/authMiddleware');
 const {
   createListing,

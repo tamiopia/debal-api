@@ -98,12 +98,12 @@ exports.createOrUpdateProfile = async (req, res) => {
     // Parse the is_profile_flags array from form
     const isProfileFlags = req.body.is_profile_flags || [];
 
-    const newPhotos = req.files?.map((file, index) => ({
+    const newPhotos = (req.files || []).map((file, index) => ({
       url: file.path,
       filename: file.filename,
       mimetype: file.mimetype,
-      is_profile: isProfileFlags[index] === 'true' // Accept only true string
-    })) || [];
+      is_profile: isProfileFlags[index] === 'true' // string 'true' from form
+    }));
 
     // If multiple have is_profile true, keep only the last one
     let profilePhotoIndex = newPhotos.findIndex(p => p.is_profile);
@@ -154,6 +154,59 @@ exports.createOrUpdateProfile = async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 };
+const cloudinary = require('../utils/cloudinary');
+
+// exports.createOrUpdateProfile = async (req, res) => {
+//   try {
+//     // Check if files exist
+//     if (!req.files || req.files.length === 0) {
+//       return res.status(400).json({ error: 'No files uploaded' });
+//     }
+
+//     const imageUrls = req.files.map(file => file.path);
+//     console.log('Image URLs:', imageUrls);
+//     const isProfileFlags = req.body.is_profile_flags || [];
+
+//     // 1. Upload each file to Cloudinary with better error handling
+//     const uploadedPhotos = [];
+    
+//     for (const [index, file] of (req.files || []).entries()) {
+//       try {
+//         console.log(`Uploading file ${index}: ${file.path}`);
+//         const result = await cloudinary.uploader.upload(file.path, {
+//           folder: 'profile_photos'
+//         });
+//         console.log(`Upload successful for file ${index}`);
+
+//         // Delete local file after successful upload
+//         fs.unlink(file.path, (err) => {
+//           if (err) console.error(`Error deleting file ${file.path}:`, err);
+//         });
+
+//         uploadedPhotos.push({
+//           url: result.secure_url,
+//           filename: result.public_id,
+//           mimetype: file.mimetype,
+//           is_profile: isProfileFlags[index] === 'true'
+//         });
+//       } catch (uploadErr) {
+//         console.error(`Error uploading file ${file.path}:`, uploadErr);
+//         // Continue with other files even if one fails
+//       }
+//     }
+
+//     if (uploadedPhotos.length === 0) {
+//       return res.status(500).json({ error: 'Failed to upload any files to Cloudinary' });
+//     }
+
+//     // Rest of your existing code...
+//     // [Keep the profile creation/update logic]
+    
+//   } catch (err) {
+//     console.error('Error in createOrUpdateProfile:', err);
+//     res.status(500).json({ error: err.message });
+//   }
+// };
 
 exports.deletePhoto = async (req, res) => {
   try {
@@ -192,7 +245,7 @@ exports.deletePhoto = async (req, res) => {
 exports.setProfilePhoto = async (req, res) => {
   try {
     const userId = req.user.id;
-    const filename = req.params.filename;
+    const filename = req.body.filename;
 
     const profile = await Profile.findOne({ user: userId });
     if (!profile) {

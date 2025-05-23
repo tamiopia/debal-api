@@ -26,7 +26,10 @@ const {
 } = require('../controllers/profileController');
 
 const { protect } = require('../middlewares/authMiddleware');
-const upload = require('../middlewares/upload'); 
+// const upload = require('../middlewares/upload');
+const upload = require('../middlewares/cloudupload');
+
+
 
 // ✅ Protected routes
 router.get('/me', protect, getMyProfile);

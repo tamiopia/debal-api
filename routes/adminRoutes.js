@@ -32,6 +32,26 @@ router.post('/handlereport/:reportId',protect ,admin, adminController.handleRepo
 router.get('/allfeedback',protect ,admin, adminController.getAllFeedback);
 router.get('/allfeedback/:id',protect ,admin, adminController.getFeedbackById);
 
+const upload = require('../middlewares/cloudupload');
+
+router.post('/upload', upload.single('image'), (req, res) => {
+  res.json({
+    message: 'Upload successful',
+    imageUrl: req.file.path
+  });
+});
+
+router.post('/upload-multiple', upload.array('images', 5), (req, res) => {
+    const imageUrls = req.files.map(file => file.path);
+    res.json({
+      message: 'Images uploaded successfully!',
+      imageUrls
+    });
+  })
+
+module.exports = router;
+
+
 
 
 
