@@ -37,6 +37,10 @@ const verificationRequestSchema = new mongoose.Schema({
     type: Date,
     default: Date.now
   },
+  isrejected: {
+    type: Boolean,
+    default: false
+  },
   reviewedAt: Date,
   reviewer: {
     type: mongoose.Schema.Types.ObjectId,
