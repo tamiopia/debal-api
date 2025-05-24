@@ -16,7 +16,7 @@ const storage = multer.diskStorage({
     cb(null, `${Date.now()}-${file.originalname}`);
   }
 });
-const upload = multer({ storage });
+const upload = require('../middlewares/cloudupload');
 
 // User submits verification
 // Here, we expect two images (front and back) and other form fields (idType, idNumber, fullName)

@@ -885,6 +885,8 @@ const { v4: uuidv4 } = require('uuid');
 const fs = require('fs');
 const path = require('path');
 
+
+
 const uploadimages = async (req, res) => {
   try {
     const { listingId } = req.params;
@@ -894,34 +896,27 @@ const uploadimages = async (req, res) => {
     }
 
     const listing = await HouseListing.findById(listingId);
-
     if (!listing) {
       return res.status(404).json({ error: 'Listing not found' });
     }
 
-    const imageObjects = [];
-
-    for (const file of req.files) {
-      const uniqueId = uuidv4();
-      const extension = path.extname(file.originalname);
-      const newFilename = `${uniqueId}${extension}`;
-      const newPath = path.join(file.destination, newFilename);
-
-      // Rename the file to use the UUID-based name
-      fs.renameSync(file.path, newPath);
-
-      imageObjects.push({
-        id: uniqueId,
-        url: `uploads/${newFilename}`,
-        description: '' // You can pass from req.body if needed
-      });
+    if (!req.files || req.files.length === 0) {
+      return res.status(400).json({ error: 'No files uploaded' });
     }
+
+    const imageObjects = req.files.map(file => ({
+      id: uuidv4(),
+      url: file.path, // Cloudinary URL
+      filename: file.filename,
+      mimetype: file.mimetype,
+      description: '' // Optional: add from req.body if needed
+    }));
 
     listing.photos.push(...imageObjects);
     await listing.save();
 
     res.status(200).json({
-      message: 'Images uploaded successfully',
+      message: 'Images uploaded successfully to Cloudinary',
       images: imageObjects
     });
   } catch (err) {
@@ -937,7 +932,11 @@ const uploadimages = async (req, res) => {
 
 
 
+
 // Update images for a listing
+
+
+const cloudinary = require('../config/cloudinary'); // your configured Cloudinary instance
 
 const updateimages = async (req, res) => {
   try {
@@ -953,35 +952,34 @@ const updateimages = async (req, res) => {
       return res.status(404).json({ error: 'Listing not found' });
     }
 
-    // Delete any image not in keepImages
+    // Delete images from Cloudinary that are not in keepImages
     const imagesToDelete = listing.photos.filter(photo => !keepImages.includes(photo.id));
     for (const photo of imagesToDelete) {
-      const fullPath = path.join(__dirname, '..', photo.url);
-      if (fs.existsSync(fullPath)) {
-        fs.unlinkSync(fullPath);
+      if (photo.public_id) {
+        try {
+          await cloudinary.uploader.destroy(photo.public_id);
+        } catch (err) {
+          console.warn(`Cloudinary deletion failed for ${photo.public_id}`, err.message);
+        }
       }
     }
 
     // Keep only those requested
     const updatedPhotos = listing.photos.filter(photo => keepImages.includes(photo.id));
 
-    // Add new images with UUIDs
+    // Add new uploaded files from Cloudinary
     for (const file of req.files) {
       const uuid = uuidv4();
-      const ext = path.extname(file.originalname);
-      const newFilename = `${uuid}${ext}`;
-      const newPath = path.join(file.destination, newFilename);
-
-      fs.renameSync(file.path, newPath); // rename file on disk
-
       updatedPhotos.push({
         id: uuid,
-        url: `uploads/${newFilename}`,
-        description: ''
+        url: file.path, // Cloudinary URL
+        filename: file.filename,
+        mimetype: file.mimetype,
+        public_id: file.filename.split('.')[0], // If public_id is saved like filename
+        description: '' // Optional field
       });
     }
 
-    // Save updated list
     listing.photos = updatedPhotos;
     await listing.save();
 
@@ -998,6 +996,7 @@ const updateimages = async (req, res) => {
     });
   }
 };
+
 
 const deleteImage = async (req, res) => {
   try {
