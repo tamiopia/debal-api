@@ -206,8 +206,8 @@ const profileSchema = new mongoose.Schema({
   },
   verfication_status: {
     type: String,
-    enum: ['pending', 'verified', 'rejected'],
-    default: 'pending'
+    enum: ['pending', 'verified', 'rejected','notVerified'],
+    default: 'notVerified'
   },
   photos: [{
     url: String,

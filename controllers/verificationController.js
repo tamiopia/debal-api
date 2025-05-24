@@ -28,6 +28,13 @@ exports.submitVerification = async (req, res) => {
       frontIdImage,
       backIdImage
     });
+    // code to update profile.verfication_status to pending
+    const Profile = require('../models/Profile');
+    const profile = await Profile.findOne({ user: req.user.id });
+    if (profile) {
+      profile.verification_status = 'pending';
+      await profile.save();
+    }
 
     res.status(201).json({ message: 'Verification request submitted.', request });
   } catch (err) {
