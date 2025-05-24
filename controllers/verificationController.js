@@ -32,7 +32,7 @@ exports.submitVerification = async (req, res) => {
     const Profile = require('../models/Profile');
     const profile = await Profile.findOne({ user: req.user.id });
     if (profile) {
-      profile.verification_status = 'pending';
+      profile.verificationStatus = 'pending';
       await profile.save();
     }
 

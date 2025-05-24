@@ -148,6 +148,7 @@ app.use('/api/house-rules', houseRuleRoutes);
 app.use('/api/feedbacks', feedbackRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/dashboard', require('./routes/dashboardRoutes')); // Dashboard routes
+app.use('/api/gurantor', require('./routes/guarantorRoutes')); // Guranto routes
 // Serve API documentation
 
 // Serve static files
