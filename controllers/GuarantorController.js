@@ -8,34 +8,67 @@ const cloudinary = require('cloudinary').v2;
 // Create a new guarantor
 exports.create = async (req, res) => {
     try {
-        const userId = req.user.id; // Assuming you have user authentication middleware
+      const userId = req.user.id; // Assuming authenticated user
       const { guarantorName, address, work, phoneNumber } = req.body;
       const files = req.files;
   
       const guarantorImage = files?.guarantorImage?.[0];
       const verificationCard = files?.verificationCard?.[0];
   
-      if (!guarantorImage || !verificationCard) {
-        return res.status(400).json({ success: false, message: 'Both images are required.' });
+      if (!guarantorImage && !verificationCard) {
+        return res.status(400).json({
+          success: false,
+          message: 'At least one image (guarantorImage or verificationCard) is required.'
+        });
       }
   
-      // Uploading to Cloudinary using local temp file paths
-      const guarantorImageUpload = await cloudinary.uploader.upload(guarantorImage.path, {
-        folder: 'guarantors/images'
-      });
+      // Upload new files if provided
+      let guarantorImageUrl, verificationCardUrl;
+      if (guarantorImage) {
+        const upload = await cloudinary.uploader.upload(guarantorImage.path, {
+          folder: 'guarantors/images'
+        });
+        guarantorImageUrl = upload.secure_url;
+      }
   
-      const verificationCardUpload = await cloudinary.uploader.upload(verificationCard.path, {
-        folder: 'guarantors/cards'
-      });
+      if (verificationCard) {
+        const upload = await cloudinary.uploader.upload(verificationCard.path, {
+          folder: 'guarantors/cards'
+        });
+        verificationCardUrl = upload.secure_url;
+      }
   
+      // Check if guarantor already exists for user
+      let existingGuarantor = await Guarantor.findOne({ userId });
+  
+      if (existingGuarantor) {
+        // Update the existing guarantor
+        existingGuarantor.guarantorName = guarantorName || existingGuarantor.guarantorName;
+        existingGuarantor.address = address || existingGuarantor.address;
+        existingGuarantor.work = work || existingGuarantor.work;
+        existingGuarantor.phoneNumber = phoneNumber || existingGuarantor.phoneNumber;
+        existingGuarantor.guarantorImage = guarantorImageUrl || existingGuarantor.guarantorImage;
+        existingGuarantor.verificationCard = verificationCardUrl || existingGuarantor.verificationCard;
+        existingGuarantor.status = 'active';
+  
+        await existingGuarantor.save();
+  
+        return res.status(200).json({
+          success: true,
+          message: 'Guarantor updated successfully!',
+          data: existingGuarantor
+        });
+      }
+  
+      // Create new guarantor
       const newGuarantor = new Guarantor({
         userId,
         guarantorName,
-        guarantorImage: guarantorImageUpload.secure_url,
         address,
         work,
-        verificationCard: verificationCardUpload.secure_url,
         phoneNumber,
+        guarantorImage: guarantorImageUrl,
+        verificationCard: verificationCardUrl,
         status: 'active'
       });
   
@@ -52,6 +85,7 @@ exports.create = async (req, res) => {
       res.status(500).json({ success: false, message: 'Server error' });
     }
   };
+  
 
 // Admin verifies a guarantor
 exports.verify = async (req, res) => {
@@ -89,3 +123,53 @@ exports.verify = async (req, res) => {
     res.status(500).json({ success: false, message: 'Server error' });
   }
 };
+
+// Get all guarantors 
+exports.getAll = async (req, res) => {
+  try {
+    const guarantors = await Guarantor.find().populate('userId', 'name email');
+    res.status(200).json({
+      success: true,
+      data: guarantors
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+};
+
+exports.getGuarantorById = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const guarantor = await Guarantor.findById(id).populate('userId', 'name email');
+        if (!guarantor) {
+            return res.status(404).json({ success: false, message: 'Guarantor not found' });
+        }
+        res.status(200).json({
+            success: true,
+            data: guarantor
+        });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ success: false, message: 'Server error' });
+    }
+}
+
+// get guarantor by userId
+exports.getGuarantorByUserId = async (req, res) => {
+    try {
+        const { userId } = req.params;
+        const guarantor = await Guarantor.findOne({ userId }).populate('userId', 'name email');
+        if (!guarantor) {
+            return res.status(404).json({ success: false, message: 'Guarantor not found' });
+        }
+        res.status(200).json({
+            success: true,
+            data: guarantor
+        });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ success: false, message: 'Server error' });
+    }
+}
+

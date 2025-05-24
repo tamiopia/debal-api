@@ -14,5 +14,11 @@ router.post('/create',protect,upload.fields([
 
 // Admin verifies a guarantor
 router.put('/verify/:id', GuarantorController.verify);
+//get all guarantors
+router.get('/all', GuarantorController.getAll);
+//get guarantor by id
+router.get('/:id', GuarantorController.getGuarantorById);
+//get all guarantors by user id
+router.get('/user/:userId', GuarantorController.getGuarantorByUserId);
 
 module.exports = router;
